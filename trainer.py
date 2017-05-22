@@ -80,6 +80,7 @@ class Trainer(object):
 
         _, height, width, self.channel = \
                 get_conv_shape(self.data_loader, self.data_format)
+        self.channel = 1
         self.repeat_num = int(np.log2(height)) - 2
 
         self.start_step = 0
@@ -125,47 +126,126 @@ class Trainer(object):
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
-        for step in trange(self.start_step, self.max_step):
-            fetch_dict = {
-                "k_update": self.k_update,
-                "measure": self.measure,
-            }
-            if step % self.log_step == 0:
-                fetch_dict.update({
-                    "summary": self.summary_op,
-                    "g_loss": self.g_loss,
-                    "d_loss": self.d_loss,
-                    "k_t": self.k_t,
-                })
-            result = self.sess.run(fetch_dict)
+        def CelebA(datadir, num=200000):
+            '''load human face dataset'''
+            import h5py
+            from random import sample
+            import numpy as np
+            f = h5py.File(datadir + "/rect_rectcrs0.hdf5", "r")
+            data_key = f.keys()[0]
+            data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
+            # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
+            # data = data.transpose((0,2,3,1))
+            label_key = f.keys()[1]
+            label = np.asarray(f[label_key])
 
-            measure = result['measure']
-            measure_history.append(measure)
+            split = 0.1
+            l = len(data)  # length of data
+            n1 = int(split * l)  # split for testing
+            indices = sample(range(l), n1)
 
-            if step % self.log_step == 0:
-                self.summary_writer.add_summary(result['summary'], step)
-                self.summary_writer.flush()
+            x_test = data[indices]
+            y_test = label[indices]
+            x_train = np.delete(data, indices, 0)
+            y_train = np.delete(label, indices, 0)
 
-                g_loss = result['g_loss']
-                d_loss = result['d_loss']
-                k_t = result['k_t']
+            # return (x_train, y_train), (x_test, y_test)
+            return (x_train[0:num], y_train[0:num]), (x_test[0:1000], y_test[0:1000])
 
-                print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
-                      format(step, self.max_step, d_loss, g_loss, measure, k_t))
+        import dateutil.tz
+        import datetime
+        def creat_dir(network_type):
+            """code from on InfoGAN"""
+            now = datetime.datetime.now(dateutil.tz.tzlocal())
+            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+            root_log_dir = "logs/" + network_type
+            exp_name = network_type + "_%s" % timestamp
+            log_dir = os.path.join(root_log_dir, exp_name)
 
-            if step % (self.log_step * 10) == 0:
-                x_fake = self.generate(z_fixed, self.model_dir, idx=step)
-                self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
+            now = datetime.datetime.now(dateutil.tz.tzlocal())
+            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+            root_model_dir = "models/" + network_type
+            exp_name = network_type + "_%s" % timestamp
+            model_dir = os.path.join(root_model_dir, exp_name)
 
-            if step % self.lr_update_step == self.lr_update_step - 1:
-                self.sess.run([self.g_lr_update, self.d_lr_update])
-                #cur_measure = np.mean(measure_history)
-                #if cur_measure > prev_measure * 0.99:
-                #prev_measure = cur_measure
+            for path in [log_dir, model_dir]:
+                if not os.path.exists(path):
+                    os.makedirs(path)
+            return log_dir, model_dir
+        self.logdir, self.modeldir = creat_dir('GAN')
+
+        counter = 0
+        from tqdm import tqdm
+        self.datadir='/home/hope-yao/Documents/Data'
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
+        x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
+        feed_dict_fix = {self.x: x_input_fix}
+        for epoch in range(5000):
+            it_per_ep = len(self.X_train) / self.batch_size
+            for i in tqdm(range(it_per_ep)):
+                counter += 1
+                x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
+                feed_dict = {self.x: x_input }
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
+                print(result)
+
+                if counter in [5e5, 3e6, 1e7]:
+                    self.sess.run([self.g_lr_update, self.d_lr_update])
+
+                if counter % 100 == 0:
+                    x_img, x_rec, g_img, g_rec = \
+                        self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
+                    nrow = 16
+                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec])
+                    save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
+
+                if counter in [1e2, 1e3, 5e3, 1e4, 2e4, 3e4, 1e5, 2e5]:
+                    snapshot_name = "%s_%s" % ('experiment', str(counter))
+                    fn = self.saver.save(self.sess, "%s/%s.ckpt" % (self.modeldir, snapshot_name))
+                    print("Model saved in file: %s" % fn)
+
+            # for step in trange(self.start_step, self.max_step):
+        #     fetch_dict = {
+        #         "k_update": self.k_update,
+        #         "measure": self.measure,
+        #     }
+        #     if step % self.log_step == 0:
+        #         fetch_dict.update({
+        #             "summary": self.summary_op,
+        #             "g_loss": self.g_loss,
+        #             "d_loss": self.d_loss,
+        #             "k_t": self.k_t,
+        #         })
+        #     result = self.sess.run(fetch_dict)
+        #
+        #     measure = result['measure']
+        #     measure_history.append(measure)
+        #
+        #     if step % self.log_step == 0:
+        #         self.summary_writer.add_summary(result['summary'], step)
+        #         self.summary_writer.flush()
+        #
+        #         g_loss = result['g_loss']
+        #         d_loss = result['d_loss']
+        #         k_t = result['k_t']
+        #
+        #         print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
+        #               format(step, self.max_step, d_loss, g_loss, measure, k_t))
+        #
+        #     if step % (self.log_step * 10) == 0:
+        #         x_fake = self.generate(z_fixed, self.model_dir, idx=step)
+        #         self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
+        #
+        #     if step % self.lr_update_step == self.lr_update_step - 1:
+        #         self.sess.run([self.g_lr_update, self.d_lr_update])
+        #         #cur_measure = np.mean(measure_history)
+        #         #if cur_measure > prev_measure * 0.99:
+        #         #prev_measure = cur_measure
 
     def build_model(self):
-        self.x = self.data_loader
+        self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
+        self.x_img = denorm_img(self.x,self.data_format)
 
         self.z = tf.random_uniform(
                 (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
