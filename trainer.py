@@ -92,8 +92,29 @@ class Trainer(object):
         self.is_train = config.is_train
         self.build_model()
 
+        import dateutil.tz
+        import datetime
+        def creat_dir(network_type):
+            """code from on InfoGAN"""
+            now = datetime.datetime.now(dateutil.tz.tzlocal())
+            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+            root_log_dir = "logs/" + network_type
+            exp_name = network_type + "_%s" % timestamp
+            log_dir = os.path.join(root_log_dir, exp_name)
+
+            now = datetime.datetime.now(dateutil.tz.tzlocal())
+            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+            root_model_dir = "models/" + network_type
+            exp_name = network_type + "_%s" % timestamp
+            model_dir = os.path.join(root_model_dir, exp_name)
+
+            for path in [log_dir, model_dir]:
+                if not os.path.exists(path):
+                    os.makedirs(path)
+            return log_dir, model_dir
+        self.logdir, self.modeldir = creat_dir('GAN')
         self.saver = tf.train.Saver()
-        self.summary_writer = tf.summary.FileWriter(self.model_dir)
+        self.summary_writer = tf.summary.FileWriter(self.logdir)
 
         sv = tf.train.Supervisor(logdir=self.model_dir,
                                 is_chief=True,
@@ -152,28 +173,6 @@ class Trainer(object):
             # return (x_train, y_train), (x_test, y_test)
             return (x_train[0:num], y_train[0:num]), (x_test[0:1000], y_test[0:1000])
 
-        import dateutil.tz
-        import datetime
-        def creat_dir(network_type):
-            """code from on InfoGAN"""
-            now = datetime.datetime.now(dateutil.tz.tzlocal())
-            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-            root_log_dir = "logs/" + network_type
-            exp_name = network_type + "_%s" % timestamp
-            log_dir = os.path.join(root_log_dir, exp_name)
-
-            now = datetime.datetime.now(dateutil.tz.tzlocal())
-            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-            root_model_dir = "models/" + network_type
-            exp_name = network_type + "_%s" % timestamp
-            model_dir = os.path.join(root_model_dir, exp_name)
-
-            for path in [log_dir, model_dir]:
-                if not os.path.exists(path):
-                    os.makedirs(path)
-            return log_dir, model_dir
-        self.logdir, self.modeldir = creat_dir('GAN')
-
         counter = 0
         from tqdm import tqdm
         self.datadir='/home/hope-yao/Documents/Data'
@@ -204,7 +203,12 @@ class Trainer(object):
                     fn = self.saver.save(self.sess, "%s/%s.ckpt" % (self.modeldir, snapshot_name))
                     print("Model saved in file: %s" % fn)
 
-            # for step in trange(self.start_step, self.max_step):
+                if counter % 10 == 0:
+                    summary = self.sess.run(self.summary_op, feed_dict)
+                    self.summary_writer.add_summary(summary, counter)
+                    self.summary_writer.flush()
+
+                    # for step in trange(self.start_step, self.max_step):
         #     fetch_dict = {
         #         "k_update": self.k_update,
         #         "measure": self.measure,
@@ -242,6 +246,35 @@ class Trainer(object):
         #         #if cur_measure > prev_measure * 0.99:
         #         #prev_measure = cur_measure
 
+    def BEGAN_enc(self, input, act_func, hidden_num=128, z_num=64, repeat_num=4, data_format='NCHW', reuse=False):
+        x = slim.conv2d(input, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+
+        prev_channel_num = hidden_num
+        for idx in range(repeat_num):
+            channel_num = hidden_num * (idx + 1)
+            x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            if idx < repeat_num - 1:
+                # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
+                x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
+
+        x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
+        z = x = slim.fully_connected(x, z_num, activation_fn=None)
+        return z
+
+    def BEGAN_dec(self, input, hidden_num, act_func, input_channel=3, data_format='NCHW', repeat_num=4):
+        x = slim.fully_connected(input, np.prod([8, 8, hidden_num]), activation_fn=None)
+        x = reshape(x, 8, 8, hidden_num, data_format)
+
+        for idx in range(repeat_num):
+            x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            if idx < repeat_num - 1:
+                x = upscale(x, 2, data_format)
+
+        out = slim.conv2d(x, input_channel, 3, 1, activation_fn=None, data_format=data_format)
+        return out
+
     def build_model(self):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
@@ -251,15 +284,26 @@ class Trainer(object):
                 (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
-        G, self.G_var = GeneratorCNN(
-                self.z, self.conv_hidden_num, self.channel,
-                self.repeat_num, self.data_format, reuse=False)
+        # G, self.G_var = GeneratorCNN(
+        #         self.z, self.conv_hidden_num, self.channel,
+        #         self.repeat_num, self.data_format, reuse=False)
+        # d_out, self.D_z, self.D_var = DiscriminatorCNN(
+        #         tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
+        #         self.conv_hidden_num, self.data_format)
 
-        d_out, self.D_z, self.D_var = DiscriminatorCNN(
-                tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
-                self.conv_hidden_num, self.data_format)
+        with tf.variable_scope("G") as vs_g:
+            G = self.BEGAN_dec(self.z, hidden_num=128, act_func=tf.nn.elu, input_channel=1, data_format='NCHW',
+                                        repeat_num=4)
+        self.G_var = tf.contrib.framework.get_variables(vs_g)
+        with tf.variable_scope("D") as vs_d:
+            z_d = self.BEGAN_enc(tf.concat([G, x], 0), act_func=tf.nn.elu, hidden_num=128, z_num=64,
+                                 repeat_num=4, data_format='NCHW', reuse=False)
+            d_out= self.BEGAN_dec(z_d, hidden_num=128, act_func=tf.nn.elu, input_channel=1, data_format='NCHW',
+                                        repeat_num=4)
+        self.D_var = tf.contrib.framework.get_variables(vs_d)
+
+
         AE_G, AE_x = tf.split(d_out, 2)
-
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
 
