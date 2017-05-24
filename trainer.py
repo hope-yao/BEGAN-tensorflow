@@ -163,7 +163,7 @@ class Trainer(object):
             split = 0.1
             l = len(data)  # length of data
             n1 = int(split * l)  # split for testing
-            indices = sample(range(l), n1)
+            indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]#sample(range(l), n1)
 
             x_test = data[indices]
             y_test = label[indices]
@@ -192,10 +192,10 @@ class Trainer(object):
                     self.sess.run([self.g_lr_update, self.d_lr_update])
 
                 if counter % 100 == 0:
-                    x_img, x_rec, g_img, g_rec = \
-                        self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
+                    x_img, x_rec, g_img, g_rec,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2 = \
+                        self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G, self.intp_d1, self.extp_d1, self.extp_d11, self.intp_d2, self.extp_d2, self.extp_d21,self.inc_z0,self.inc_z1,self.inc_z2,self.morph0,self.morph1,self.morph2], feed_dict_fix)
                     nrow = 16
-                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec])
+                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec,extp_d1,intp_d1,extp_d11,extp_d2,intp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
 
                 if counter in [1e2, 1e3, 5e3, 1e4, 2e4, 3e4, 1e5, 2e5]:
@@ -246,35 +246,6 @@ class Trainer(object):
         #         #if cur_measure > prev_measure * 0.99:
         #         #prev_measure = cur_measure
 
-    def BEGAN_enc(self, input, act_func, hidden_num=128, z_num=64, repeat_num=4, data_format='NCHW', reuse=False):
-        x = slim.conv2d(input, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-
-        prev_channel_num = hidden_num
-        for idx in range(repeat_num):
-            channel_num = hidden_num * (idx + 1)
-            x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            if idx < repeat_num - 1:
-                # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
-                x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
-
-        x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
-        z = x = slim.fully_connected(x, z_num, activation_fn=None)
-        return z
-
-    def BEGAN_dec(self, input, hidden_num, act_func, input_channel=3, data_format='NCHW', repeat_num=4):
-        x = slim.fully_connected(input, np.prod([8, 8, hidden_num]), activation_fn=None)
-        x = reshape(x, 8, 8, hidden_num, data_format)
-
-        for idx in range(repeat_num):
-            x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            if idx < repeat_num - 1:
-                x = upscale(x, 2, data_format)
-
-        out = slim.conv2d(x, input_channel, 3, 1, activation_fn=None, data_format=data_format)
-        return out
-
     def build_model(self):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
@@ -284,26 +255,57 @@ class Trainer(object):
                 (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
-        # G, self.G_var = GeneratorCNN(
-        #         self.z, self.conv_hidden_num, self.channel,
-        #         self.repeat_num, self.data_format, reuse=False)
-        # d_out, self.D_z, self.D_var = DiscriminatorCNN(
-        #         tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
-        #         self.conv_hidden_num, self.data_format)
+        G, self.G_var = GeneratorCNN(
+                self.z, self.conv_hidden_num, self.channel,
+                self.repeat_num, self.data_format, reuse=False)
+        d_out, self.D_z, self.D_var = DiscriminatorCNN(
+                tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
+                self.conv_hidden_num, self.data_format)
+        # AE_G, AE_x = tf.split(d_out, 2)
+        # self.d_intp1 = self.d_intp2 = []
 
-        with tf.variable_scope("G") as vs_g:
-            G = self.BEGAN_dec(self.z, hidden_num=128, act_func=tf.nn.elu, input_channel=1, data_format='NCHW',
-                                        repeat_num=4)
-        self.G_var = tf.contrib.framework.get_variables(vs_g)
-        with tf.variable_scope("D") as vs_d:
-            z_d = self.BEGAN_enc(tf.concat([G, x], 0), act_func=tf.nn.elu, hidden_num=128, z_num=64,
-                                 repeat_num=4, data_format='NCHW', reuse=False)
-            d_out= self.BEGAN_dec(z_d, hidden_num=128, act_func=tf.nn.elu, input_channel=1, data_format='NCHW',
-                                        repeat_num=4)
-        self.D_var = tf.contrib.framework.get_variables(vs_d)
+        # with tf.variable_scope("G") as vs_g:
+        #     G = BEGAN_dec(self.z, hidden_num=16, input_channel=1, data_format='NCHW',
+        #                                 repeat_num=4)
+        # self.G_var = tf.contrib.framework.get_variables(vs_g)
+        # with tf.variable_scope("D") as vs_d:
+        #     self.z_d = BEGAN_enc(tf.concat([G, x], 0), hidden_num=16, z_num=64,
+        #                          repeat_num=4, data_format='NCHW', reuse=False)
+        #
+        #     start_z = tf.slice(self.z_d, [16+0, 0], [1, 64])
+        #     end_z = tf.slice(self.z_d, [16+1, 0], [1, 64])
+        #     intp_z1 = start_z
+        #     num = 16
+        #     for ci in range(1, num, 1):
+        #         intp_z1 = tf.concat([intp_z1, start_z + (end_z - start_z) * num / 15.], 0)
+        #     start_z = tf.slice(self.z_d, [16+0, 0], [1, 64])
+        #     end_z = tf.slice(self.z_d, [16+2, 0], [1, 64])
+        #     intp_z2 = start_z
+        #     num = 16
+        #     for ci in range(1, num, 1):
+        #         intp_z2 = tf.concat([intp_z2, start_z + (end_z - start_z) * num / 15.], 0)
+        #
+        # d_out = BEGAN_dec(tf.concat([self.z_d,intp_z1,intp_z2],0), hidden_num=16, input_channel=1, data_format='NCHW',
+        #                        repeat_num=4)
+        # self.D_var = tf.contrib.framework.get_variables(vs_d)
+        AE_G, AE_x,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2  = tf.split(d_out, 14)
+        # AE_G = tf.slice(d_out, [0,0,0,0],[16,1,64,64])
+        # AE_x = tf.slice(d_out, [15,0,0,0],[16,1,64,64])
+        # d_intp1 = tf.slice(d_out, [16*2-1,0,0,0],[16,1,64,64])
+        # d_intp2 = tf.slice(d_out, [16*2+16-1,0,0,0],[16,1,64,64])
+        self.intp_d1 = denorm_img(intp_d1, self.data_format)
+        self.extp_d1 = denorm_img(extp_d1, self.data_format)
+        self.extp_d11 = denorm_img(extp_d11, self.data_format)
+        self.intp_d2 = denorm_img(intp_d2, self.data_format)
+        self.extp_d2 = denorm_img(extp_d2, self.data_format)
+        self.extp_d21 = denorm_img(extp_d21, self.data_format)
+        self.inc_z0 = denorm_img(inc_z0, self.data_format)
+        self.inc_z1 = denorm_img(inc_z1, self.data_format)
+        self.inc_z2 = denorm_img(inc_z2, self.data_format)
+        self.morph0 = denorm_img(morph0, self.data_format)
+        self.morph1 = denorm_img(morph1, self.data_format)
+        self.morph2 = denorm_img(morph2, self.data_format)
 
-
-        AE_G, AE_x = tf.split(d_out, 2)
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
 
