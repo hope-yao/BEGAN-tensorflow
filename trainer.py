@@ -8,6 +8,7 @@ from glob import glob
 from tqdm import trange
 from itertools import chain
 from collections import deque
+from style import total_style_cost
 
 from models import *
 from utils import save_image
@@ -185,7 +186,7 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input }
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
@@ -197,6 +198,19 @@ class Trainer(object):
                     nrow = 16
                     all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec,extp_d1,intp_d1,extp_d11,extp_d2,intp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
+                    # from sklearn.manifold import TSNE
+                    # X = np.asarray(D_z)[0]
+                    # model = TSNE(n_components=2, perplexity=15, random_state=0)
+                    # np.set_printoptions(suppress=True)
+                    # T = model.fit_transform(X)
+                    #
+                    # import matplotlib.pyplot as plt
+                    # fig = plt.figure()
+                    # for i in range(32):
+                    #     if i < 16:
+                    #         plt.plot(T[i, 0], T[i, 1], 'b.')
+                    #     else:
+                    #         plt.plot(T[i, 0], T[i, 1], 'ro')
 
                 if counter in [1e2, 1e3, 5e3, 1e4, 2e4, 3e4, 1e5, 2e5]:
                     snapshot_name = "%s_%s" % ('experiment', str(counter))
@@ -320,7 +334,8 @@ class Trainer(object):
         self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
-        self.g_loss = tf.reduce_mean(tf.abs(AE_G - G))
+        self.style_loss = total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)))
+        self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
@@ -340,6 +355,7 @@ class Trainer(object):
             tf.summary.scalar("loss/d_loss", self.d_loss),
             tf.summary.scalar("loss/d_loss_real", self.d_loss_real),
             tf.summary.scalar("loss/d_loss_fake", self.d_loss_fake),
+            tf.summary.scalar("misc/style_loss", self.style_loss),
             tf.summary.scalar("loss/g_loss", self.g_loss),
             tf.summary.scalar("misc/measure", self.measure),
             tf.summary.scalar("misc/k_t", self.k_t),
