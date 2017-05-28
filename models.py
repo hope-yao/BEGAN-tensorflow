@@ -2,6 +2,63 @@ import numpy as np
 import tensorflow as tf
 slim = tf.contrib.slim
 
+def monitor(x,z,z_num=2):
+    # interpolation
+    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [16 + 3, 0], [1, z_num])
+    intp_z1 = start_z
+    num = 16
+    for ci in range(1, num, 1):
+        intp_z1 = tf.concat([intp_z1, start_z + (end_z - start_z) * ci / (num - 1)], 0)
+    inc_z0 = -(end_z - start_z) * 0
+    num = 16
+    for ci in range(1, num, 1):
+        inc_z0 = tf.concat([inc_z0, -(end_z - start_z) * ci / (num - 1)], 0)
+    inc_z1 = (end_z - start_z) * 0
+    num = 16
+    for ci in range(1, num, 1):
+        inc_z1 = tf.concat([inc_z1, (end_z - start_z) * ci / (num - 1)], 0)
+    morph0 = tf.slice(z, [16, 0], [16, z_num]) - (end_z - start_z)
+    morph1 = tf.slice(z, [16, 0], [16, z_num]) + (end_z - start_z)
+
+    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [16 + 5, 0], [1, z_num])
+    intp_z2 = start_z
+    num = 16
+    for ci in range(1, num, 1):
+        intp_z2 = tf.concat([intp_z2, start_z + (end_z - start_z) * ci / (num - 1)], 0)
+    inc_z2 = -(end_z - start_z) * 0
+    num = 16
+    for ci in range(1, num, 1):
+        inc_z2 = tf.concat([inc_z2, -(end_z - start_z) * ci / (num - 1)], 0)
+    morph2 = tf.slice(z, [16, 0], [16, z_num]) + (end_z - start_z)
+
+    # extrapolation
+    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [16 + 3, 0], [1, z_num])
+    extp_z1 = start_z
+    num = 16
+    for ci in range(1, num, 1):
+        extp_z1 = tf.concat([extp_z1, start_z - (end_z - start_z) * ci / (num - 1)], 0)
+    extp_z11 = end_z
+    num = 16
+    for ci in range(1, num, 1):
+        extp_z11 = tf.concat([extp_z11, end_z - (start_z - end_z) * ci / (num - 1)], 0)
+
+    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [16 + 5, 0], [1, z_num])
+    extp_z2 = start_z
+    num = 16
+    for ci in range(1, num, 1):
+        extp_z2 = tf.concat([extp_z2, start_z - (end_z - start_z) * ci / (num - 1)], 0)
+    extp_z21 = end_z
+    num = 16
+    for ci in range(1, num, 1):
+        extp_z21 = tf.concat([extp_z21, end_z - (start_z - end_z) * ci / (num - 1)], 0)
+
+    x = tf.concat(
+        [x, intp_z1, extp_z1, extp_z11, intp_z2, extp_z2, extp_z21, inc_z0, inc_z1, inc_z2, morph0, morph1, morph2], 0)
+    return x
 
 def BEGAN_enc(input, hidden_num=128, z_num=64, repeat_num=4, data_format='NCHW', reuse=False):
     x = slim.conv2d(input, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
@@ -48,7 +105,7 @@ def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format, reuse):
     variables = tf.contrib.framework.get_variables(vs)
     return out, variables
 
-def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_format):
+def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, data_format):
     with tf.variable_scope("D") as vs:
         # Encoder
         x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
@@ -65,65 +122,14 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
         x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
         z = x = slim.fully_connected(x, z_num, activation_fn=None)
 
-        # interpolation
-        start_z = tf.slice(z, [16+4, 0], [1, 64])
-        end_z = tf.slice(z, [16+3, 0], [1, 64])
-        intp_z1 = start_z
-        num = 16
-        for ci in range(1, num, 1):
-            intp_z1 = tf.concat([intp_z1, start_z + (end_z - start_z) * ci/(num-1)], 0)
-        inc_z0 = -(end_z - start_z) * 0
-        num = 16
-        for ci in range(1, num, 1):
-            inc_z0 = tf.concat([inc_z0, -(end_z - start_z) * ci / (num - 1)], 0)
-        inc_z1 = (end_z - start_z) * 0
-        num = 16
-        for ci in range(1, num, 1):
-            inc_z1 = tf.concat([inc_z1, (end_z - start_z) * ci / (num - 1)], 0)
-        morph0 = tf.slice(z, [16, 0], [16, 64])-(end_z - start_z)
-        morph1 = tf.slice(z, [16, 0], [16, 64])+(end_z - start_z)
+        x = monitor(x,z,z.shape[1].value)
 
-        start_z = tf.slice(z, [16+4, 0], [1, 64])
-        end_z = tf.slice(z, [16+5, 0], [1, 64])
-        intp_z2 = start_z
-        num = 16
-        for ci in range(1, num, 1):
-            intp_z2 = tf.concat([intp_z2, start_z + (end_z - start_z) * ci/(num-1)], 0)
-        inc_z2 = -(end_z - start_z) * 0
-        num = 16
-        for ci in range(1, num, 1):
-            inc_z2 = tf.concat([inc_z2, -(end_z - start_z) * ci / (num - 1)], 0)
-        morph2 = tf.slice(z, [16, 0], [16, 64])+(end_z - start_z)
-
-        # extrapolation
-        start_z = tf.slice(z, [16+4, 0], [1, 64])
-        end_z = tf.slice(z, [16+3, 0], [1, 64])
-        extp_z1 = start_z
-        num = 16
-        for ci in range(1, num, 1):
-            extp_z1 = tf.concat([extp_z1, start_z - (end_z - start_z) * ci/(num-1)], 0)
-        extp_z11 = end_z
-        num = 16
-        for ci in range(1, num, 1):
-            extp_z11 = tf.concat([extp_z11, end_z - (start_z-end_z) * ci/(num-1)], 0)
-
-        start_z = tf.slice(z, [16+4, 0], [1, 64])
-        end_z = tf.slice(z, [16+5, 0], [1, 64])
-        extp_z2 = start_z
-        num = 16
-        for ci in range(1, num, 1):
-            extp_z2 = tf.concat([extp_z2, start_z - (end_z - start_z) * ci/(num-1)], 0)
-        extp_z21 = end_z
-        num = 16
-        for ci in range(1, num, 1):
-            extp_z21 = tf.concat([extp_z21, end_z - (start_z-end_z) * ci/(num-1)], 0)
-
-        x = tf.concat([x,intp_z1,extp_z1,extp_z11,intp_z2,extp_z2,extp_z21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2],0)
+        x = tf.concat([x,tf.tile(y_data,[x.shape[0].value/y_data.shape[0].value,1])],1)
 
         # Decoder
         x = slim.fully_connected(x, np.prod([8, 8, hidden_num]), activation_fn=None)
         x = reshape(x, 8, 8, hidden_num, data_format)
-        
+
         for idx in range(repeat_num):
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)

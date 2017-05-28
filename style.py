@@ -21,7 +21,7 @@ def gram_matrix(x):
     return gram
 
 
-def style_loss(style, combination):
+def style_loss(style, combination, dist):
     mb_size = style.shape[0].value
     width = style.shape[1].value
     height = style.shape[2].value
@@ -30,13 +30,22 @@ def style_loss(style, combination):
     channels = 3
     size = height * width
 
+    # C = S =[]
+    # for i in range(mb_size):
+    #     C += [gram_matrix(combination[i])]
+    # for j in range(mb_size):
+    #     S += [gram_matrix(style[j])]
+    # for i in range(mb_size):
+    #     for j in range(mb_size):
+    #         loss_temp = tf.add(loss_temp, backend.sum(backend.square(S[j] - C[i])) / (4. * (channels ** 2) * (size ** 2)) * dist[i,j]) * 1e-7
+    #
+    # return loss_temp/mb_size
     for i in range(mb_size):
         C = gram_matrix(combination[i])
         S = gram_matrix(style[i])
         loss_temp = tf.add(loss_temp, backend.sum(backend.square(S - C)) / (4. * (channels ** 2) * (size ** 2))) * 1e-7
 
     return loss_temp
-
 
 def load_vgg(vgg_filepath):
     f = h5py.File(vgg_filepath,'r')
@@ -219,7 +228,7 @@ def true_activation(style_image, W_vgg, b_vgg):
     return style_conv_out
 
 
-def total_style_cost(combination_image, style_image):
+def total_style_cost(combination_image, style_image, z1, z2):
     # Style transfer
     W_vgg, b_vgg = load_vgg('/home/hope-yao/Documents/Data/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
     gen_conv_out = gen_activation(combination_image, W_vgg, b_vgg)
@@ -229,15 +238,36 @@ def total_style_cost(combination_image, style_image):
      conv_out10, conv_out11, conv_out12, conv_out13] = gen_conv_out
     [conv_out1_S, conv_out2_S, conv_out3_S, conv_out4_S, conv_out5_S, conv_out6_S, conv_out7_S, conv_out8_S, conv_out9_S,
                     conv_out10_S, conv_out11_S, conv_out12_S, conv_out13_S] = style_conv_out
-    sl1 = style_loss(conv_out2_S, conv_out2)
-    sl2 = style_loss(conv_out4_S, conv_out4)
-    sl3 = style_loss(conv_out7_S, conv_out7)
-    sl4 = style_loss(conv_out10_S, conv_out10)
+
+    dist = tf.sqrt(tf.reduce_sum(tf.square(
+        tf.tile(tf.expand_dims(z1, 0), [z2.shape[0].value, 1, 1]) - tf.tile(tf.expand_dims(z2, 0), [16, 1, 1])), 2))
+
+    sl1 = style_loss(conv_out2_S, conv_out2, dist)
+    sl2 = style_loss(conv_out4_S, conv_out4, dist)
+    sl3 = style_loss(conv_out7_S, conv_out7, dist)
+    sl4 = style_loss(conv_out10_S, conv_out10, dist)
     sl = sl1 + sl2 + sl3 + sl4
 
     return sl
 
+import numpy as np
 
-
+ii = range(3, 32, 2)
+ww = []
+for i in ii:
+    ww += [tf.Variable(np.ones((i, i, 1, 1),dtype='float32'))]
+def white_style(input):
+    result = tf.Variable(0.)
+    count = 0
+    for w in ww:
+        x = input
+        x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
+        x = tf.clip_by_value(x, 0, 1)
+        # result_ch = tf.sigmoid((tf.reduce_mean(x,axis=(1,2,3)) * (3+count*2))) -0.5
+        # result +=tf.reduce_mean(tf.clip_by_value(-result_ch,-1,1))
+        result_ch = tf.sigmoid((tf.reduce_mean(x, axis=(1, 2, 3)) * (3 + count * 2)))
+        result += tf.reduce_sum(1-result_ch)
+        count += 1
+    return result
 
 
