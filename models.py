@@ -4,8 +4,8 @@ slim = tf.contrib.slim
 
 def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format, reuse):
     with tf.variable_scope("G", reuse=reuse) as vs:
-        x = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
-        x = reshape(x, 8, 8, hidden_num, data_format)
+        x = slim.fully_connected(z, np.prod([6, 6, hidden_num]), activation_fn=None)
+        x = reshape(x, 6, 6, hidden_num, data_format)
         
         for idx in range(repeat_num):
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
@@ -32,12 +32,12 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
                 # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
                 x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
 
-        x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
+        x = tf.reshape(x, [-1, np.prod([6, 6, channel_num])])
         z = x = slim.fully_connected(x, z_num, activation_fn=None)
 
         # Decoder
-        x = slim.fully_connected(x, np.prod([8, 8, hidden_num]), activation_fn=None)
-        x = reshape(x, 8, 8, hidden_num, data_format)
+        x = slim.fully_connected(x, np.prod([6, 6, hidden_num]), activation_fn=None)
+        x = reshape(x, 6, 6, hidden_num, data_format)
         
         for idx in range(repeat_num):
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
