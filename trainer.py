@@ -152,17 +152,17 @@ class Trainer(object):
             import h5py
             from random import sample
             import numpy as np
-            # f = h5py.File("rectcrs_z.hdf5", "r")
-            f = h5py.File(datadir + "/rect_rectcrs0.hdf5", "r")
+            f = h5py.File("rectcrs_z.hdf5", "r")
+            # f = h5py.File(datadir + "/rect_rectcrs0.hdf5", "r")
             data_key = f.keys()[0]
             data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
             # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
             # data = data.transpose((0,2,3,1))
             label_key = f.keys()[1]
             label = np.asarray(f[label_key])
-            # z_key = f.keys()[2]
-            # z = np.asarray(f[z_key])
-            # z = z*2-1
+            z_key = f.keys()[2]
+            z = np.asarray(f[z_key])
+            z = z.astype('float32') * 2 - 1
 
             split = 0.1
             l = len(data)  # length of data
@@ -171,13 +171,13 @@ class Trainer(object):
 
             x_test = data[indices]
             y_test = label[indices]
-            # z_test = z[indices]
+            z_test = z[indices]
             x_train = np.delete(data, indices, 0)
             y_train = np.delete(label, indices, 0)
-            # z_train = np.delete(z, indices, 0)
+            z_train = np.delete(z, indices, 0)
 
-            return (x_train, y_train, 0), (x_test, y_test, 0)
-            # return (x_train[0:num], y_train[0:num], z_train[0:num]), (x_test[0:1000], y_test[0:1000], z_test[0:1000])
+            # return (x_train, y_train, 0), (x_test, y_test, 0)
+            return (x_train[0:num], y_train[0:num], z_train[0:num]), (x_test[0:1000], y_test[0:1000], z_test[0:1000])
 
         counter = 0
         from tqdm import tqdm
@@ -185,8 +185,8 @@ class Trainer(object):
         (self.X_train, self.y_train, self.z_train), (self.X_test, self.y_test, self.z_test) = CelebA(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        # z_input_fix = self.z_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        z_input = z_input_fix = np.random.rand(self.batch_size,self.z_num).astype('float32')# temperary
+        z_input_fix = self.z_test[0 * self.batch_size:(0 + 1) * self.batch_size]
+        # z_input = z_input_fix = np.random.rand(self.batch_size,self.z_num).astype('float32')# temperary
         feed_dict_fix = {self.x: x_input_fix, self.y: y_input_fix, self.z: z_input_fix}
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
@@ -194,9 +194,9 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                # z_input = self.z_train[i * self.batch_size:(i + 1) * self.batch_size]
+                z_input = self.z_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input,self.y: y_input,self.z: z_input}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.sw, self.z_gen, self.z, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2  ],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
@@ -283,7 +283,7 @@ class Trainer(object):
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
         G, self.G_var = GeneratorCNN(
-                tf.concat([self.z_gen,self.y],1), self.conv_hidden_num, self.channel,
+            self.z_gen, self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
         d_out, self.D_z, self.D_var = DiscriminatorCNN( self.y,
                 tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
@@ -347,7 +347,7 @@ class Trainer(object):
         self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
-        self.style_loss = total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)), self.z_gen, self.z)
+        self.style_loss, self.sw, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2 =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)), self.z_gen, self.z)
         # self.style_loss = white_style(tf.transpose(G,(0,2,3,1)))
         self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss
 

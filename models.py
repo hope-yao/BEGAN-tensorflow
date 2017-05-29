@@ -124,7 +124,7 @@ def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, da
 
         x = monitor(x,z,z.shape[1].value)
 
-        x = tf.concat([x,tf.tile(y_data,[x.shape[0].value/y_data.shape[0].value,1])],1)
+        x = tf.concat([x,tf.tile(y_data,[14,1])],1)
 
         # Decoder
         x = slim.fully_connected(x, np.prod([8, 8, hidden_num]), activation_fn=None)

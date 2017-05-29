@@ -18,7 +18,7 @@ net_arg.add_argument('--input_scale_size', type=int, default=64,
                      help='input image will be resized with the given value as width and height')
 net_arg.add_argument('--conv_hidden_num', type=int, default=16,
                      choices=[64, 128],help='n in the paper')
-net_arg.add_argument('--z_num', type=int, default=64, choices=[64, 128])
+net_arg.add_argument('--z_num', type=int, default=2, choices=[64, 128])
 
 # Data
 data_arg = add_argument_group('Data')
