@@ -37,9 +37,14 @@ def style_loss(style, combination, weight):
         S += [gram_matrix(style[j])]
     for i in range(mb_size):
         for j in range(mb_size):
-            loss_temp = tf.add(loss_temp, backend.sum(backend.square(S[j] - C[i])) / (4. * (channels ** 2) * (size ** 2)) * weight[i,j]) * 1e-7
+            loss_temp = tf.add(loss_temp, backend.sum(backend.square(S[j] - C[i])) / (4. * (channels ** 2) * (size ** 2)) * weight[i,j] )
 
-    return loss_temp/mb_size
+    # for i in range(mb_size):
+    #     C = gram_matrix(combination[i])
+    #     S = gram_matrix(style[i])
+    #     loss_temp = tf.add(loss_temp, backend.sum(backend.square(S - C)) / (4. * (channels ** 2) * (size ** 2))) * 1e-7
+
+    return loss_temp*1e-6
     # for i in range(mb_size):
     #     C = gram_matrix(combination[i])
     #     S = gram_matrix(style[i])

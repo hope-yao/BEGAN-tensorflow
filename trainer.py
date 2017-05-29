@@ -196,7 +196,7 @@ class Trainer(object):
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
                 z_input = self.z_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input,self.y: y_input,self.z: z_input}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.sw, self.z_gen, self.z, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2  ],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
