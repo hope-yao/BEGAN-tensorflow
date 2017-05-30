@@ -37,7 +37,7 @@ def style_loss(style, combination, weight):
         S += [gram_matrix(style[j])]
     for i in range(mb_size):
         for j in range(mb_size):
-            loss_temp = tf.add(loss_temp, backend.sum(backend.square(S[j] - C[i])) / (4. * (channels ** 2) * (size ** 2)) * weight[i,j] )
+            loss_temp = tf.add(loss_temp, backend.sum(backend.square(S[j] - C[i])) / (4. * (channels ** 2) * (size ** 2) * weight[i,j] ))
 
     # for i in range(mb_size):
     #     C = gram_matrix(combination[i])
@@ -245,8 +245,8 @@ def total_style_cost(combination_image, style_image, z1, z2):
                     conv_out10_S, conv_out11_S, conv_out12_S, conv_out13_S] = style_conv_out
 
     dd = tf.tile(tf.expand_dims(z1, 1), [1, 16, 1]) - tf.tile(tf.expand_dims(z2, 0), [16, 1, 1])
-    dist = tf.sqrt(tf.reduce_sum(tf.square(dd), 2))  # dist[i,j] = z1[i]-z2[j]
-    weight = dist / tf.tile(tf.expand_dims(tf.reduce_sum(dist, 1), 1),[1, 16])  # row-wise summation, duplicate to matrix, normalize
+    weight = tf.sqrt(tf.reduce_sum(tf.square(dd), 2))  # dist[i,j] = z1[i]-z2[j]
+    # weight = weight / tf.tile(tf.expand_dims(tf.reduce_sum(dist, 1), 1),[1, 16])  # row-wise summation, duplicate to matrix, normalize
 
     sl1 = style_loss(conv_out2_S, conv_out2, weight)
     sl2 = style_loss(conv_out4_S, conv_out4, weight)
