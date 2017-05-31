@@ -11,6 +11,32 @@ from collections import deque
 
 from models import *
 from utils import save_image
+import dateutil.tz
+import datetime
+
+
+def CelebA(datadir, num=200000):
+    '''load human face dataset'''
+    import h5py
+    from random import sample
+    import numpy as np
+    # f = h5py.File("rectcrs_z.hdf5", "r")
+    f = h5py.File(datadir + "/Ti_hope.hdf5", "r")
+    data_key = f.keys()[0]
+    data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
+    # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
+    data = data * 255
+    data = data.transpose((0, 3, 2, 1))
+
+    split = 0.1
+    l = len(data)  # length of data
+    n1 = int(split * l)  # split for testing
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16]  # sample(range(l), n1)
+
+    x_test = data[indices]
+    x_train = np.delete(data, indices, 0)
+
+    return (x_train, 0), (x_test, 0)
 
 def next(loader):
     return loader.next()[0].data.numpy()
@@ -30,13 +56,16 @@ def to_nchw_numpy(image):
     return new_image
 
 def norm_img(image, data_format=None):
-    image = image/127.5 - 1.
+    image = image/255.
+    # image = image/127.5 - 1.
     if data_format:
         image = to_nhwc(image, data_format)
     return image
 
 def denorm_img(norm, data_format):
-    return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
+    return tf.clip_by_value(to_nhwc(norm * 255., data_format), 0, 255)
+    # return tf.clip_by_value(to_nhwc((norm + 1) * 127.5, data_format), 0, 255)
+
 
 def slerp(val, low, high):
     """Code from https://github.com/soumith/dcgan.torch/issues/14"""
@@ -45,6 +74,27 @@ def slerp(val, low, high):
     if so == 0:
         return (1.0-val) * low + val * high # L'Hopital's rule/LERP
     return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
+
+
+def creat_dir(network_type):
+    """code from on InfoGAN"""
+    now = datetime.datetime.now(dateutil.tz.tzlocal())
+    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+    root_log_dir = "logs/" + network_type
+    exp_name = network_type + "_%s" % timestamp
+    log_dir = os.path.join(root_log_dir, exp_name)
+
+    now = datetime.datetime.now(dateutil.tz.tzlocal())
+    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+    root_model_dir = "models/" + network_type
+    exp_name = network_type + "_%s" % timestamp
+    model_dir = os.path.join(root_model_dir, exp_name)
+
+    for path in [log_dir, model_dir]:
+        if not os.path.exists(path):
+            os.makedirs(path)
+    return log_dir, model_dir
+
 
 class Trainer(object):
     def __init__(self, config, data_loader):
@@ -83,7 +133,7 @@ class Trainer(object):
         # self.repeat_num = int(np.log2(height)) - 2
         height = width = 192
         self.channel = 1
-        self.repeat_num = 6
+        self.repeat_num = 4
 
         self.start_step = 0
         self.log_step = config.log_step
@@ -94,83 +144,36 @@ class Trainer(object):
         self.is_train = config.is_train
         self.build_model()
 
-        self.saver = tf.train.Saver()
-        self.summary_writer = tf.summary.FileWriter(self.model_dir)
-
-        sv = tf.train.Supervisor(logdir=self.model_dir,
-                                is_chief=True,
-                                saver=self.saver,
-                                summary_op=None,
-                                summary_writer=self.summary_writer,
-                                save_model_secs=300,
-                                global_step=self.step,
-                                ready_for_local_init_op=None)
-
-        gpu_options = tf.GPUOptions(allow_growth=True)
-        sess_config = tf.ConfigProto(allow_soft_placement=True,
-                                    gpu_options=gpu_options)
-
-        self.sess = sv.prepare_or_wait_for_session(config=sess_config)
-
-        if not self.is_train:
-            # dirty way to bypass graph finilization error
-            g = tf.get_default_graph()
-            g._finalized = False
-
-            self.build_test_model()
+        # self.saver = tf.train.Saver()
+        # self.summary_writer = tf.summary.FileWriter(self.model_dir)
+        #
+        # sv = tf.train.Supervisor(logdir=self.model_dir,
+        #                         is_chief=True,
+        #                         saver=self.saver,
+        #                         summary_op=None,
+        #                         summary_writer=self.summary_writer,
+        #                         save_model_secs=300,
+        #                         global_step=self.step,
+        #                         ready_for_local_init_op=None)
+        #
+        # gpu_options = tf.GPUOptions(allow_growth=True)
+        # sess_config = tf.ConfigProto(allow_soft_placement=True,
+        #                             gpu_options=gpu_options)
+        #
+        # self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+        #
+        # if not self.is_train:
+        #     # dirty way to bypass graph finilization error
+        #     g = tf.get_default_graph()
+        #     g._finalized = False
+        #
+        #     self.build_test_model()
 
     def train(self):
-        z_fixed = np.random.uniform(-1, 1, size=(self.batch_size, self.z_num))
-
-        x_fixed = self.get_image_from_loader()
-        save_image(x_fixed, '{}/x_fixed.png'.format(self.model_dir))
 
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
-        def CelebA(datadir, num=200000):
-            '''load human face dataset'''
-            import h5py
-            from random import sample
-            import numpy as np
-            # f = h5py.File("rectcrs_z.hdf5", "r")
-            f = h5py.File(datadir + "/Ti_hope.hdf5", "r")
-            data_key = f.keys()[0]
-            data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
-            # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
-            data = data*255
-            data = data.transpose((0,3,2,1))
-
-            split = 0.1
-            l = len(data)  # length of data
-            n1 = int(split * l)  # split for testing
-            indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16]  # sample(range(l), n1)
-
-            x_test = data[indices]
-            x_train = np.delete(data, indices, 0)
-
-            return (x_train, 0), (x_test, 0)
-
-        import dateutil.tz
-        import datetime
-        def creat_dir(network_type):
-            """code from on InfoGAN"""
-            now = datetime.datetime.now(dateutil.tz.tzlocal())
-            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-            root_log_dir = "logs/" + network_type
-            exp_name = network_type + "_%s" % timestamp
-            log_dir = os.path.join(root_log_dir, exp_name)
-
-            now = datetime.datetime.now(dateutil.tz.tzlocal())
-            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-            root_model_dir = "models/" + network_type
-            exp_name = network_type + "_%s" % timestamp
-            model_dir = os.path.join(root_model_dir, exp_name)
-
-            for path in [log_dir, model_dir]:
-                if not os.path.exists(path):
-                    os.makedirs(path)
-            return log_dir, model_dir
         self.logdir, self.modeldir = creat_dir('GAN')
 
         counter = 0
@@ -179,50 +182,72 @@ class Trainer(object):
         (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         feed_dict_fix = {self.x: x_input_fix}
-        for epoch in range(5000):
-            it_per_ep = len(self.X_train) / self.batch_size
-            for i in tqdm(range(it_per_ep)):
-                counter += 1
-                x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input }
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
-                print(result)
 
-                if counter in [5e5, 3e6, 1e7]:
-                    self.sess.run([self.g_lr_update, self.d_lr_update])
+        # for epoch in range(5000):
+        #     it_per_ep = len(self.X_train) / self.batch_size
+        #     for i in tqdm(range(it_per_ep)):
+        #         counter += 1
+        #         x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
+        #         feed_dict = {self.x: x_input }
+        #         # result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
+        #         result = self.sess.run([self.cost, self.d_optim],feed_dict)[0]
+        #         print(result)
+        #
+        #         if counter in [5e5, 3e6, 1e7]:
+        #             self.sess.run([self.g_lr_update, self.d_lr_update])
+        #
+        #         if counter % 10 == 0:
+        #             x_img, x_rec = \
+        #                 self.sess.run([self.x_img, self.AE_x], feed_dict_fix)
+        #             nrow = 16
+        #             all_G_z = np.concatenate([x_img, x_rec])
+        #             save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter), nrow=nrow)
 
-                if counter % 10 == 0:
-                    x_img, x_rec, g_img, g_rec = \
-                        self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
-                    nrow = 16
-                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec])
-                    save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
+        init = tf.global_variables_initializer()
 
-                if counter in [1e2, 1e3, 5e3, 1e4, 2e4, 3e4, 1e5, 2e5]:
-                    snapshot_name = "%s_%s" % ('experiment', str(counter))
-                    fn = self.saver.save(self.sess, "%s/%s.ckpt" % (self.modeldir, snapshot_name))
-                    print("Model saved in file: %s" % fn)
+        # Launch the graph
+        with tf.Session() as sess:
+            sess.run(init)
+            # Training cycle
+            count = 0
+            for epoch in range(100):
+                # Loop over all batches
+                for i in range(60):
+                    batch_xs = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
+                    # batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+                    # Run optimization op (backprop) and cost op (to get loss value)
+                    _, c = sess.run([self.d_optim, self.cost], feed_dict={self.x: batch_xs})
+                    print('iteration:{} loss:{}'.format(count, c))
+                    # Display logs per epoch step
+                    if count % 10 == 0:
+                        xx_img, x_rec = \
+                            sess.run([self.x_img, self.AE_x], feed_dict_fix)
+                        nrow = 16
+                        all_G_z = np.concatenate([x_input_fix.transpose((0, 2, 3, 1)), x_rec])
+                        save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, count), nrow=nrow)
+                    count += 1
+            print("Optimization Finished!")
 
     def build_model(self):
+        batch_size = 16
+        data_format = 'NCHW'
+        z_num = 64
+        channel = 1
+        repeat_num = 4
+        conv_hidden_num = 32
+
+        # self.x = tf.placeholder(tf.float32, [batch_size, 1, 192, 192])
+        # self.normx = norm_img(self.x)
+        # self.x_img = denorm_img(self.x, data_format)
+        # AE_x, self.D_z, self.D_var = DiscriminatorCNN(self.normx, channel, z_num, repeat_num, conv_hidden_num, data_format)
+        # self.AE_x = denorm_img(AE_x, data_format)
+
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 192, 192])
         self.normx = norm_img(self.x)
         self.x_img = denorm_img(self.x,self.data_format)
-
-        self.z = tf.random_uniform(
-                (tf.shape(self.normx)[0], self.z_num), minval=-1.0, maxval=1.0)
-        self.k_t = tf.Variable(0., trainable=False, name='k_t')
-
-        G, self.G_var = GeneratorCNN(
-                self.z, self.conv_hidden_num, self.channel,
-                self.repeat_num, self.data_format, reuse=False)
-
-        d_out, self.D_z, self.D_var = DiscriminatorCNN(
-                tf.concat([G, self.normx], 0), self.channel, self.z_num, self.repeat_num,
-                self.conv_hidden_num, self.data_format)
-        AE_G, AE_x = tf.split(d_out, 2)
-
-        self.G = denorm_img(G, self.data_format)
-        self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
+        AE_x, self.D_z, self.D_var = DiscriminatorCNN(self.normx, self.channel, self.z_num, self.repeat_num, 16, self.data_format)
+        # AE_x, self.D_z, self.D_var = DiscriminatorCNN(self.normx, channel, z_num, repeat_num, conv_hidden_num, data_format)
+        self.AE_x = denorm_img(AE_x, self.data_format)
 
         if self.optimizer == 'adam':
             optimizer = tf.train.AdamOptimizer
@@ -231,37 +256,9 @@ class Trainer(object):
 
         g_optimizer, d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
-        self.d_loss_real = tf.reduce_mean(tf.abs(AE_x - self.normx))
-        self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
+        self.cost = tf.reduce_mean(tf.pow(AE_x - self.normx, 2))
+        self.d_optim = tf.train.AdamOptimizer(1e-3).minimize(self.cost)
 
-        self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
-        self.g_loss = tf.reduce_mean(tf.abs(AE_G - G))
-
-        d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
-        g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
-
-        self.balance = self.gamma * self.d_loss_real - self.g_loss
-        self.measure = self.d_loss_real + tf.abs(self.balance)
-
-        with tf.control_dependencies([d_optim, g_optim]):
-            self.k_update = tf.assign(
-                self.k_t, tf.clip_by_value(self.k_t + self.lambda_k * self.balance, 0, 1))
-
-        self.summary_op = tf.summary.merge([
-            tf.summary.image("G", self.G),
-            tf.summary.image("AE_G", self.AE_G),
-            tf.summary.image("AE_x", self.AE_x),
-
-            tf.summary.scalar("loss/d_loss", self.d_loss),
-            tf.summary.scalar("loss/d_loss_real", self.d_loss_real),
-            tf.summary.scalar("loss/d_loss_fake", self.d_loss_fake),
-            tf.summary.scalar("loss/g_loss", self.g_loss),
-            tf.summary.scalar("misc/measure", self.measure),
-            tf.summary.scalar("misc/k_t", self.k_t),
-            tf.summary.scalar("misc/d_lr", self.d_lr),
-            tf.summary.scalar("misc/g_lr", self.g_lr),
-            tf.summary.scalar("misc/balance", self.balance),
-        ])
 
     def build_test_model(self):
         with tf.variable_scope("test") as vs:
