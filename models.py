@@ -89,8 +89,10 @@ def BEGAN_dec(input, hidden_num, input_channel=3, data_format='NCHW', repeat_num
     out = slim.conv2d(x, input_channel, 3, 1, activation_fn=None, data_format=data_format)
     return out
 
-def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format, reuse):
+def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reuse):
     with tf.variable_scope("G", reuse=reuse) as vs:
+        z = tf.concat([z,y_data],1)
+
         x = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
         x = reshape(x, 8, 8, hidden_num, data_format)
         

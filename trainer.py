@@ -116,7 +116,7 @@ class Trainer(object):
         self.logdir, self.modeldir = creat_dir('GAN')
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.logdir)
-
+        # self.saver.restore(sess, "./models/GAN/GAN_2017_05_31_14_32_26/experiment_155085.ckpt")
         sv = tf.train.Supervisor(logdir=self.model_dir,
                                 is_chief=True,
                                 saver=self.saver,
@@ -196,7 +196,7 @@ class Trainer(object):
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
                 z_input = self.z_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input,self.y: y_input,self.z: z_input}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.g_loss_reg],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
@@ -273,21 +273,30 @@ class Trainer(object):
     def build_model(self):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
-        self.x_img = denorm_img(self.x,self.data_format)
+        self.x_img = denorm_img(x,self.data_format)
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num], name='z_input')
-        self.y= tf.cast(tf.multinomial(tf.zeros([self.batch_size, 2]), 2), tf.float32) #second 2 is number of attributes
+        # self.y = tf.cast(tf.multinomial(tf.zeros([self.batch_size, 2]), 2), tf.float32) #second 2 is number of attributes
+        self.y = tf.placeholder(tf.float32, [self.batch_size, 2], name='y_input')
 
-        # self.y = tf.placeholder(tf.float32, [self.batch_size, 2])
         self.z_gen = tf.random_uniform(
                 (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
-        G, self.G_var = GeneratorCNN(
-            self.z_gen, self.conv_hidden_num, self.channel,
+        G_out, self.G_var = GeneratorCNN(
+            tf.tile(self.y, [2, 1]), tf.concat([self.z, self.z_gen],0), self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
+        G_reg, G = tf.split(G_out, 2)
         d_out, self.D_z, self.D_var = DiscriminatorCNN( self.y,
                 tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
+
+        z_d_gen, z_d_real = tf.split(self.D_z, 2)
+        nom = tf.matmul(z_d_gen, tf.transpose(z_d_gen, perm=[1, 0]))
+        denom = tf.sqrt(tf.reduce_sum(tf.square(z_d_gen), reduction_indices=[1], keep_dims=True))
+        pt = tf.square(tf.transpose((nom / denom), (1, 0)) / denom)
+        pt = pt - tf.diag(tf.diag_part(pt))
+        self.pulling_term = tf.reduce_sum(pt) / (self.batch_size * (self.batch_size - 1))
+
         # AE_G, AE_x = tf.split(d_out, 2)
         # self.d_intp1 = self.d_intp2 = []
 
@@ -334,6 +343,7 @@ class Trainer(object):
         self.morph2 = denorm_img(morph2, self.data_format)
 
         self.G = denorm_img(G, self.data_format)
+        self.G_reg = denorm_img(G_reg, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
 
         if self.optimizer == 'adam':
@@ -349,7 +359,9 @@ class Trainer(object):
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
         self.style_loss, self.sw, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2 =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)), self.z_gen, self.z)
         # self.style_loss = white_style(tf.transpose(G,(0,2,3,1)))
-        self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss
+        self.g_loss_reg = tf.reduce_mean(tf.abs(G_reg - x))
+        # self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss + self.pulling_term + self.g_loss_reg
+        self.g_loss = self.g_loss_reg
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
@@ -376,6 +388,8 @@ class Trainer(object):
             tf.summary.scalar("misc/d_lr", self.d_lr),
             tf.summary.scalar("misc/g_lr", self.g_lr),
             tf.summary.scalar("misc/balance", self.balance),
+            tf.summary.scalar("misc/pulling_term", self.pulling_term),
+            tf.summary.scalar("misc/g_loss_reg", self.g_loss_reg),
         ])
 
     def build_test_model(self):
