@@ -46,6 +46,65 @@ def slerp(val, low, high):
         return (1.0-val) * low + val * high # L'Hopital's rule/LERP
     return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
 
+
+def CelebA(datadir, num=200000):
+    '''load human face dataset'''
+    import h5py
+    from random import sample
+    import numpy as np
+    # f = h5py.File("rectcrs_z.hdf5", "r")
+    f = h5py.File(datadir + "/Ti_hope.hdf5", "r")
+    data_key = f.keys()[0]
+    data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
+    # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
+    data = data * 255
+    data = data.transpose((0, 3, 2, 1))
+
+    split = 0.1
+    l = len(data)  # length of data
+    n1 = int(split * l)  # split for testing
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16]  # sample(range(l), n1)
+
+    x_test = data[indices]
+    x_train = np.delete(data, indices, 0)
+
+    return (x_train, 0), (x_test, 0)
+
+
+import dateutil.tz
+import datetime
+
+
+def calc_pt(z_d_gen, batch_size):
+    nom = tf.matmul(z_d_gen, tf.transpose(z_d_gen, perm=[1, 0]))
+    denom = tf.sqrt(tf.reduce_sum(tf.square(z_d_gen), reduction_indices=[1], keep_dims=True))
+    pt = tf.square(tf.transpose((nom / denom), (1, 0)) / denom)
+    pt = pt - tf.diag(tf.diag_part(pt))
+    pulling_term = tf.reduce_sum(pt) / (batch_size * (batch_size - 1))
+    return pulling_term
+
+
+def creat_dir(network_type):
+    """code from on InfoGAN"""
+    now = datetime.datetime.now(dateutil.tz.tzlocal())
+    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+    root_log_dir = "logs/" + network_type
+    exp_name = network_type + "_%s" % timestamp
+    log_dir = os.path.join(root_log_dir, exp_name)
+
+    now = datetime.datetime.now(dateutil.tz.tzlocal())
+    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
+    root_model_dir = "models/" + network_type
+    exp_name = network_type + "_%s" % timestamp
+    model_dir = os.path.join(root_model_dir, exp_name)
+
+    for path in [log_dir, model_dir]:
+        if not os.path.exists(path):
+            os.makedirs(path)
+    return log_dir, model_dir
+
+
+
 class Trainer(object):
     def __init__(self, config, data_loader):
         self.config = config
@@ -72,6 +131,7 @@ class Trainer(object):
         self.conv_hidden_num = config.conv_hidden_num
         self.input_scale_size = config.input_scale_size
 
+        self.logdir, self.modeldir = creat_dir('GAN')
         self.model_dir = config.model_dir
         self.load_path = config.load_path
 
@@ -83,7 +143,7 @@ class Trainer(object):
         # self.repeat_num = int(np.log2(height)) - 2
         height = width = 192
         self.channel = 1
-        self.repeat_num = 6
+        self.repeat_num = 4
 
         self.start_step = 0
         self.log_step = config.log_step
@@ -95,9 +155,9 @@ class Trainer(object):
         self.build_model()
 
         self.saver = tf.train.Saver()
-        self.summary_writer = tf.summary.FileWriter(self.model_dir)
+        self.summary_writer = tf.summary.FileWriter(self.modeldir)
 
-        sv = tf.train.Supervisor(logdir=self.model_dir,
+        sv = tf.train.Supervisor(logdir=self.modeldir,
                                 is_chief=True,
                                 saver=self.saver,
                                 summary_op=None,
@@ -112,6 +172,9 @@ class Trainer(object):
 
         self.sess = sv.prepare_or_wait_for_session(config=sess_config)
 
+        # self.sess = tf.Session()
+        # self.saver.restore(self.sess, "./models/GAN/GAN_2017_06_02_11_45_40/experiment_22024.ckpt")
+
         if not self.is_train:
             # dirty way to bypass graph finilization error
             g = tf.get_default_graph()
@@ -120,78 +183,43 @@ class Trainer(object):
             self.build_test_model()
 
     def train(self):
-        z_fixed = np.random.uniform(-1, 1, size=(self.batch_size, self.z_num))
-
-        x_fixed = self.get_image_from_loader()
-        save_image(x_fixed, '{}/x_fixed.png'.format(self.model_dir))
 
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
-        def CelebA(datadir, num=200000):
-            '''load human face dataset'''
-            import h5py
-            from random import sample
-            import numpy as np
-            # f = h5py.File("rectcrs_z.hdf5", "r")
-            f = h5py.File(datadir + "/Ti_hope.hdf5", "r")
-            data_key = f.keys()[0]
-            data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
-            # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
-            data = data*255
-            data = data.transpose((0,3,2,1))
-
-            split = 0.1
-            l = len(data)  # length of data
-            n1 = int(split * l)  # split for testing
-            indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16]  # sample(range(l), n1)
-
-            x_test = data[indices]
-            x_train = np.delete(data, indices, 0)
-
-            return (x_train, 0), (x_test, 0)
-
-        import dateutil.tz
-        import datetime
-        def creat_dir(network_type):
-            """code from on InfoGAN"""
-            now = datetime.datetime.now(dateutil.tz.tzlocal())
-            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-            root_log_dir = "logs/" + network_type
-            exp_name = network_type + "_%s" % timestamp
-            log_dir = os.path.join(root_log_dir, exp_name)
-
-            now = datetime.datetime.now(dateutil.tz.tzlocal())
-            timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-            root_model_dir = "models/" + network_type
-            exp_name = network_type + "_%s" % timestamp
-            model_dir = os.path.join(root_model_dir, exp_name)
-
-            for path in [log_dir, model_dir]:
-                if not os.path.exists(path):
-                    os.makedirs(path)
-            return log_dir, model_dir
-        self.logdir, self.modeldir = creat_dir('GAN')
 
         counter = 0
         from tqdm import tqdm
-        self.datadir='/home/doi5/Documents/Hope'
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
+        import scipy.io as sio
+        WB = sio.loadmat('/home/doi5/Documents/Hope/WB_sm.mat')['WB_sm']
+        x_train = WB
+        x_test = WB
+        x_train = x_train.astype('float32') * 255.
+        x_test = x_test.astype('float32') * 255.
+        x_train = np.reshape(x_train, (1000, 100, 100, 1))  # adapt this if using `channels_first` image data format
+        x_test = np.reshape(x_test, (1000, 100, 100, 1))  # adapt this if using `channels_first` image data format
+        self.X_train = self.X_test = np.zeros((1000, 104, 104, 1))
+        self.X_train[:, 2:102, 2:102, :] = x_train
+        self.X_test[:, 2:102, 2:102, :] = x_test
+        self.X_train = np.transpose(self.X_train,(0,3,1,2))
+        self.X_test = np.transpose(self.X_test,(0,3,1,2))
+        # self.datadir='/home/doi5/Documents/Hope'
+        # (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        feed_dict_fix = {self.x: x_input_fix}
+        feed_dict_fix = {self.x: x_input_fix, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
             for i in tqdm(range(it_per_ep)):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input }
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
+                feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss],feed_dict)
                 print(result)
 
-                if counter in [5e5, 3e6, 1e7]:
+                if counter in [3e4, 6e4, 9e4, 12e5, 15e5]:
                     self.sess.run([self.g_lr_update, self.d_lr_update])
 
-                if counter % 10 == 0:
+                if counter % 100 == 0:
                     x_img, x_rec, g_img, g_rec = \
                         self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
                     nrow = 16
@@ -203,23 +231,42 @@ class Trainer(object):
                     fn = self.saver.save(self.sess, "%s/%s.ckpt" % (self.modeldir, snapshot_name))
                     print("Model saved in file: %s" % fn)
 
-    def build_model(self):
-        self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 192, 192])
-        self.normx = norm_img(self.x)
-        self.x_img = denorm_img(self.x,self.data_format)
+                if counter % 10 == 0:
+                    summary = self.sess.run(self.summary_op, feed_dict)
+                    self.summary_writer.add_summary(summary, counter)
+                    self.summary_writer.flush()
 
-        self.z = tf.random_uniform(
-                (tf.shape(self.normx)[0], self.z_num), minval=-1.0, maxval=1.0)
+
+
+    def build_model(self):
+        self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 104, 104])
+        self.normx = norm_img(self.x)
+        self.x_img = denorm_img(self.normx,self.data_format)
+        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num])
+
+        # self.z = tf.random_uniform(
+        #         (tf.shape(self.normx)[0], self.z_num), minval=-1.0, maxval=1.0)
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
         G, self.G_var = GeneratorCNN(
                 self.z, self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
 
-        d_out, self.D_z, self.D_var = DiscriminatorCNN(
+        d_out, self.D_z, self.D_z1, self.D_z2, self.D_var = DiscriminatorCNN(
                 tf.concat([G, self.normx], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
         AE_G, AE_x = tf.split(d_out, 2)
+
+        z_d_gen, z_d_real = tf.split(self.D_z, 2)
+        self.pulling_term =  calc_pt(z_d_gen, batch_size=self.batch_size)
+        z_d_gen1, _ = tf.split(self.D_z1, 2)
+        self.pulling_term1 =  calc_pt(z_d_gen1, batch_size=self.batch_size)
+        z_d_gen2, _ = tf.split(self.D_z2, 2)
+        self.pulling_term2 =  calc_pt(z_d_gen2, batch_size=self.batch_size)
+
+        from style import total_style_cost
+        self.style_loss =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([self.normx,self.normx,self.normx],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
+        # self.style_loss = tf.Variable(0.)
 
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
@@ -231,11 +278,12 @@ class Trainer(object):
 
         g_optimizer, d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
-        self.d_loss_real = tf.reduce_mean(tf.abs(AE_x - self.normx))
-        self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
+        self.d_loss_real = tf.reduce_mean(tf.square(AE_x - self.normx))
+        self.d_loss_fake = tf.reduce_mean(tf.square(AE_G - G))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
-        self.g_loss = tf.reduce_mean(tf.abs(AE_G - G))
+        pt_r = 0.15
+        self.g_loss = tf.reduce_mean(tf.square(AE_G - G))*(1+pt_r) + pt_r*self.pulling_term + 0.1*self.style_loss
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
@@ -261,6 +309,10 @@ class Trainer(object):
             tf.summary.scalar("misc/d_lr", self.d_lr),
             tf.summary.scalar("misc/g_lr", self.g_lr),
             tf.summary.scalar("misc/balance", self.balance),
+            tf.summary.scalar("misc/pt", self.pulling_term),
+            tf.summary.scalar("misc/pt1", self.pulling_term1),
+            tf.summary.scalar("misc/pt2", self.pulling_term2),
+            tf.summary.scalar("misc/style_loss", self.style_loss),
         ])
 
     def build_test_model(self):
