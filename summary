@@ -1,3 +1,4 @@
+----------------------DOI3----------------------
 GAN_2017_06_02_14_50_04     bs=32,gamma=0.5		nfilter=128	z_num=64	glr=1e-3,tanh	dlr=1e-3,sig
 GAN_2017_06_02_15_04_44     bs=32,gamma=0.5		nfilter=64	z_num=128	glr=1e-3,tanh	dlr=1e-3,sig
 GAN_2017_06_02_15_17_25     bs=32,gamma=0.5		nfilter=64	z_num=128	glr=3e-4,tanh	dlr=3e-4,sig
@@ -19,12 +20,26 @@ GAN_2017_06_04_13_54_29     bs=32,gamma=0.4 	nfilter=64	z_num=128	glr=5e-4,tanh	
 GAN_2017_06_04_17_28_47     bs=32,gamma=0.7 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.15x(0.75g_loss)(0.1orig_style_loss)  adaptive lr
 GAN_2017_06_04_22_56_48     bs=32,gamma=0.7 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1orig_style_loss)  adaptive lr --------(current best)
 GAN_2017_06_05_08_01_19     bs=32,gamma=0.7 	nfilter=64	z_num=128	glr=3e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1orig_style_loss)  adaptive lr
-     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=3e-4,tanh	dlr=3e-4,tanh   pt=0.15x(?g_loss)(0.1orig_style_loss)  adaptive lr
+GAN_2017_06_05_11_58_11     bs=64,gamma=0.7 	nfilter=64	z_num=128	glr=3e-4,tanh	dlr=3e-4,tanh   pt=0.15x(?g_loss)(0.1orig_style_loss)  adaptive lr ---------pt goes to 1
+GAN_2017_06_05_13_42_40     bs=64,gamma=0.7 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1orig_style_loss)  adaptive lr --------(current best)
+GAN_2017_06_05_11_04_45     bs=64,gamma=0.7 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1log_style_loss)  adaptive lr
+
+
+
+----------------------DOI2----------------------
+GAN_2017_06_05_14_46_41     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.1x(?g_loss)(0.1orig_style_loss)  adaptive lr	k_update_without_pt
+GAN_2017_06_05_15_13_42     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=7e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1orig_style_loss)  adaptive lr	k_update_without_pt
+GAN_2017_06_05_15_18_27     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1orig_style_loss)  adaptive lr	k_update_without_pt
+GAN_2017_06_05_15_23_33     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.2x(?g_loss)(0.1orig_style_loss)  adaptive lr
+GAN_2017_06_05_15_48_16     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0 style_loss=0  adaptive lr
+GAN_2017_06_05_15_57_37     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=1e-3,tanh	dlr=1e-3,tanh   pt=0 style_loss=0  adaptive lr
+GAN_2017_06_05_16_02_29     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=1e-4,tanh	dlr=1e-4,tanh   pt=0 style_loss=0  adaptive lr
+GAN_2017_06_05_16_21_19     bs=64,gamma=0.5 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=5e-4,tanh   pt=0 style_loss=0  adaptive lr
 
 
 
 
-
+----------------------CMP3----------------------
 GAN_2017_06_04_13_54_29     bs=32,gamma=0.4 	nfilter=64	z_num=128	glr=5e-4,tanh	dlr=3e-4,tanh   pt=0.15x(0.75g_loss)(0.1orig_style_loss)  adaptive lr
 GAN_2017_06_02_23_09_22     bs=32,gamma=0.5		nfilter=64	z_num=128	glr=3e-4,tanh	dlr=3e-4,tanh   pt=0.2x  adaptive lr    --------(current best)
 GAN_2017_06_03_08_38_53     bs=32,gamma=0.5		nfilter=64	z_num=128	glr=6e-4,tanh	dlr=3e-4,tanh   pt=0.2x(0.8g_loss)  adaptive lr

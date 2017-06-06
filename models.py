@@ -129,21 +129,21 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
         encoded = Flatten()(encoded)
         encoded = Dense(8 * 128)(encoded)
         z = encoded = Dense(128)(encoded)
-        z1 = encoded = Dense(8 * 128)(encoded)
-        z2 = encoded = Dense(13 * 13 * 128)(encoded)
+        encoded = Dense(8 * 128)(encoded)
+        encoded = Dense(13 * 13 * 128)(encoded)
         encoded = Reshape((13, 13, 128))(encoded)
 
-        x = Conv2D(128, (3, 3), activation='relu', padding='same')(encoded)
-        x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+        x = Conv2D(128, (3, 3), activation='relu', padding='same')(encoded)  #z1
+        z1 = x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
         x = UpSampling2D((2, 2))(x)
-        x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
-        x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+        x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)     #z2
+        z2 = x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
         x = UpSampling2D((2, 2))(x)
         x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        z3 = x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
         x = UpSampling2D((2, 2))(x)
         decoded = Conv2D(1, (3, 3), activation='tanh', padding='same')(x)
 
         variables = tf.contrib.framework.get_variables(vs)
-        return tf.transpose(decoded,(0,3,1,2)), z, z1, z2, variables
+        return tf.transpose(decoded,(0,3,1,2)), z, Flatten()(z1), Flatten()(z2), Flatten()(z3), variables
 

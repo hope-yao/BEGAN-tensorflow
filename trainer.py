@@ -213,7 +213,7 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3],feed_dict)
                 print(result)
 
                 if counter in [3e4, 6e4, 9e4, 12e5, 15e5]:
@@ -252,10 +252,11 @@ class Trainer(object):
                 self.z, self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
 
-        d_out, self.D_z, self.D_z1, self.D_z2, self.D_var = DiscriminatorCNN(
+        d_out, self.D_z, self.D_z1, self.D_z2, self.D_z3, self.D_var = DiscriminatorCNN(
                 tf.concat([G, self.normx], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
         AE_G, AE_x = tf.split(d_out, 2)
+
 
         z_d_gen, z_d_real = tf.split(self.D_z, 2)
         self.pulling_term =  calc_pt(z_d_gen, batch_size=self.batch_size)
@@ -263,6 +264,8 @@ class Trainer(object):
         self.pulling_term1 =  calc_pt(z_d_gen1, batch_size=self.batch_size)
         z_d_gen2, _ = tf.split(self.D_z2, 2)
         self.pulling_term2 =  calc_pt(z_d_gen2, batch_size=self.batch_size)
+        z_d_gen3, _ = tf.split(self.D_z3, 2)
+        self.pulling_term3 =  calc_pt(z_d_gen3, batch_size=self.batch_size)
 
         from style import total_style_cost
         self.style_loss =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([self.normx,self.normx,self.normx],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
@@ -282,7 +285,7 @@ class Trainer(object):
         self.d_loss_fake = tf.reduce_mean(tf.square(AE_G - G))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
-        pt_r = 0.15
+        pt_r = 0.2
         self.g_loss = tf.reduce_mean(tf.square(AE_G - G))*(1+pt_r) + pt_r*self.pulling_term + 0.1*self.style_loss
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
@@ -312,6 +315,7 @@ class Trainer(object):
             tf.summary.scalar("misc/pt", self.pulling_term),
             tf.summary.scalar("misc/pt1", self.pulling_term1),
             tf.summary.scalar("misc/pt2", self.pulling_term2),
+            tf.summary.scalar("misc/pt3", self.pulling_term3),
             tf.summary.scalar("misc/style_loss", self.style_loss),
         ])
 
