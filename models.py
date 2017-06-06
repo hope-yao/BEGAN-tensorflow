@@ -145,5 +145,5 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
         decoded = Conv2D(1, (3, 3), activation='tanh', padding='same')(x)
 
         variables = tf.contrib.framework.get_variables(vs)
-        return tf.transpose(decoded,(0,3,1,2)), z, Flatten()(z1), Flatten()(z2), Flatten()(z3), variables
+        return tf.transpose(decoded,(0,3,1,2)), z, z1, z2, z3, variables
 

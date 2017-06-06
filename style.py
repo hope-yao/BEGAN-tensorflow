@@ -21,8 +21,8 @@ def gram_matrix(x):
     return gram
 
 
-def style_loss(style, combination, weight):
-    mb_size = style.shape[0].value
+def style_loss(style, combination, bs, weight):
+    mb_size = bs
     width = style.shape[1].value
     height = style.shape[2].value
 
@@ -42,7 +42,7 @@ def style_loss(style, combination, weight):
     for i in range(mb_size):
         C = gram_matrix(combination[i])
         S = gram_matrix(style[i])
-        loss_temp = tf.add(loss_temp, backend.sum(backend.square(S - C)) / (4. * (channels ** 2) * (size ** 2))) * 1e-7
+        loss_temp = tf.add(loss_temp, backend.sum(backend.square(S - C)) / (4. * (channels ** 2) * (size ** 2))) * 1e-1
     return loss_temp
 
 def load_vgg(vgg_filepath):
@@ -247,8 +247,8 @@ def total_style_cost(combination_image, style_image, z1, z2, bs):
     sl4 = style_loss(conv_out10_S, conv_out10, weight)
     sl = sl1 + sl2 + sl3 + sl4
 
-    # return sl
-    return 1/(1-tf.log(sl))
+    return sl
+    # return 1/(3-tf.log(sl))
 
 import numpy as np
 

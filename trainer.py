@@ -213,7 +213,9 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,
+                                        self.style_loss,  self.style_loss1, self.style_loss2, self.style_loss3,
+                                        self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3, self.d_fvr],feed_dict)
                 print(result)
 
                 if counter in [3e4, 6e4, 9e4, 12e5, 15e5]:
@@ -257,19 +259,26 @@ class Trainer(object):
                 self.conv_hidden_num, self.data_format)
         AE_G, AE_x = tf.split(d_out, 2)
 
-
+        from keras.layers import Flatten
         z_d_gen, z_d_real = tf.split(self.D_z, 2)
         self.pulling_term =  calc_pt(z_d_gen, batch_size=self.batch_size)
-        z_d_gen1, _ = tf.split(self.D_z1, 2)
-        self.pulling_term1 =  calc_pt(z_d_gen1, batch_size=self.batch_size)
-        z_d_gen2, _ = tf.split(self.D_z2, 2)
-        self.pulling_term2 =  calc_pt(z_d_gen2, batch_size=self.batch_size)
-        z_d_gen3, _ = tf.split(self.D_z3, 2)
-        self.pulling_term3 =  calc_pt(z_d_gen3, batch_size=self.batch_size)
+        z_d_gen1, z_d_real1 = tf.split(self.D_z1, 2)
+        self.pulling_term1 =  calc_pt(Flatten()(z_d_gen1), batch_size=self.batch_size)
+        z_d_gen2, z_d_real2 = tf.split(self.D_z2, 2)
+        self.pulling_term2 =  calc_pt(Flatten()(z_d_gen2), batch_size=self.batch_size)
+        z_d_gen3, z_d_real3 = tf.split(self.D_z3, 2)
+        self.pulling_term3 =  calc_pt(Flatten()(z_d_gen3), batch_size=self.batch_size)
 
-        from style import total_style_cost
-        self.style_loss =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([self.normx,self.normx,self.normx],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
+        from style import style_loss, total_style_cost
+        # self.style_loss =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([self.normx,self.normx,self.normx],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
         # self.style_loss = tf.Variable(0.)
+        self.style_loss1 = style_loss(tf.sigmoid(z_d_real1),tf.sigmoid(z_d_gen1),self.batch_size,1)
+        self.style_loss2 = style_loss(tf.sigmoid(z_d_real2),tf.sigmoid(z_d_gen2),self.batch_size,1)
+        self.style_loss3 = style_loss(tf.sigmoid(z_d_real3),tf.sigmoid(z_d_gen3),self.batch_size,1)
+        self.style_loss = self.style_loss1 + self.style_loss2 + self.style_loss3
+
+        # self.d_fvr = tf.reduce_mean(tf.square(tf.reduce_mean(AE_G+1,axis=(1,2,3)) - tf.reduce_mean(AE_x+1,axis=(1,2,3))))
+        self.d_fvr = tf.Variable(0.)
 
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
@@ -286,7 +295,7 @@ class Trainer(object):
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
         pt_r = 0.2
-        self.g_loss = tf.reduce_mean(tf.square(AE_G - G))*(1+pt_r) + pt_r*self.pulling_term + 0.1*self.style_loss
+        self.g_loss = tf.reduce_mean(tf.square(AE_G - G))*(1+pt_r) + pt_r*self.pulling_term + 0.4*self.style_loss #+ 0.25* self.d_fvr
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
@@ -316,7 +325,11 @@ class Trainer(object):
             tf.summary.scalar("misc/pt1", self.pulling_term1),
             tf.summary.scalar("misc/pt2", self.pulling_term2),
             tf.summary.scalar("misc/pt3", self.pulling_term3),
+            tf.summary.scalar("misc/sl1", self.style_loss1),
+            tf.summary.scalar("misc/sl2", self.style_loss2),
+            tf.summary.scalar("misc/sl3", self.style_loss3),
             tf.summary.scalar("misc/style_loss", self.style_loss),
+            tf.summary.scalar("misc/d_fvr", self.d_fvr),
         ])
 
     def build_test_model(self):
