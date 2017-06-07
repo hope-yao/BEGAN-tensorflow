@@ -173,10 +173,22 @@ class Trainer(object):
             # return (x_train, y_train), (x_test, y_test)
             return (x_train[0:num], y_train[0:num]), (x_test[0:1000], y_test[0:1000])
 
+        def Mnist64(datadir, num=200000):
+            aa = np.load('/home/hope-yao/Documents/ALI-conditional/Mnist4k.npy')
+            data = aa.item()['data_train']
+            label = aa.item()['label_train']
+            indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]#sample(range(l), n1)
+
+            x_test = data[indices]
+            y_test = label[indices]
+            x_train = np.delete(data, indices, 0)
+            y_train = np.delete(label, indices, 0)
+            return ( np.expand_dims((x_train+1)*127.5, axis=1), y_train), (np.expand_dims((x_test+1)*127.5, axis=1), y_test)
+
         counter = 0
         from tqdm import tqdm
         self.datadir='/home/hope-yao/Documents/Data'
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = Mnist64(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         feed_dict_fix = {self.x: x_input_fix}
         for epoch in range(5000):
@@ -195,7 +207,7 @@ class Trainer(object):
                     x_img, x_rec, g_img, g_rec,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2 = \
                         self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G, self.intp_d1, self.extp_d1, self.extp_d11, self.intp_d2, self.extp_d2, self.extp_d21,self.inc_z0,self.inc_z1,self.inc_z2,self.morph0,self.morph1,self.morph2], feed_dict_fix)
                     nrow = 16
-                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec,extp_d1,intp_d1,extp_d11,extp_d2,intp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2])
+                    all_G_z = np.concatenate([x_img, x_rec, g_img, g_rec,extp_d1,intp_d1,extp_d11,extp_d2,intp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
 
                 if counter in [1e2, 1e3, 5e3, 1e4, 2e4, 3e4, 1e5, 2e5]:
@@ -249,7 +261,7 @@ class Trainer(object):
     def build_model(self):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
-        self.x_img = denorm_img(self.x,self.data_format)
+        self.x_img = denorm_img(x,self.data_format)
 
         self.z = tf.random_uniform(
                 (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
