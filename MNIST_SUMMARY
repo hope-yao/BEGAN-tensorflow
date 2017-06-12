@@ -1,0 +1,5 @@
+/home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_09_26_05
+d_lr=0.00004, g_lr=0.00004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001
+/home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_09_35_50
+d_lr=0.00004, g_lr=0.00004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +1pt(everywhere)
+

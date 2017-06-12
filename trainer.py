@@ -174,7 +174,7 @@ class Trainer(object):
             return (x_train[0:num], y_train[0:num]), (x_test[0:1000], y_test[0:1000])
 
         def Mnist64(datadir, num=200000):
-            aa = np.load('/home/hope-yao/Documents/ALI-conditional/Mnist4k.npy')
+            aa = np.load('/home/hope-yao/Documents/Data/MNIST/Mnist64/Mnist400.npy')
             data = aa.item()['data_train']
             label = aa.item()['label_train']
             indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]#sample(range(l), n1)
@@ -197,7 +197,7 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 feed_dict = {self.x: x_input }
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,self.pulling_term],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
@@ -331,11 +331,28 @@ class Trainer(object):
         self.d_loss_real = tf.reduce_mean(tf.abs(AE_x - x))
         self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
 
+        from keras.layers import Flatten
+        def calc_pt(z_d_gen, batch_size):
+            nom = tf.matmul(z_d_gen, tf.transpose(z_d_gen, perm=[1, 0]))
+            denom = tf.sqrt(tf.reduce_sum(tf.square(z_d_gen), reduction_indices=[1], keep_dims=True))
+            pt = tf.square(tf.transpose((nom / denom), (1, 0)) / denom)
+            pt = pt - tf.diag(tf.diag_part(pt))
+            pulling_term = tf.reduce_sum(pt) / (batch_size * (batch_size - 1))
+            return pulling_term
+        z_d_gen, z_d_real  = tf.split(self.D_z, 2)
+        self.pulling_term =  calc_pt(z_d_gen, batch_size=self.batch_size)
+        # z_d_gen1, z_d_real1, z_d_gen10 = tf.split(self.D_z1, 3)
+        # self.pulling_term1 =  calc_pt(Flatten()(z_d_gen1), batch_size=self.batch_size)
+        # z_d_gen2, z_d_real2, z_d_gen20 = tf.split(self.D_z2, 3)
+        # self.pulling_term2 =  calc_pt(Flatten()(z_d_gen2), batch_size=self.batch_size)
+        # z_d_gen3, z_d_real3, z_d_gen30 = tf.split(self.D_z3, 3)
+        # self.pulling_term3 =  calc_pt(Flatten()(z_d_gen3), batch_size=self.batch_size)
+
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
         self.g_loss = tf.reduce_mean(tf.abs(AE_G - G))
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
-        g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
+        g_optim = g_optimizer.minimize(self.g_loss + self.pulling_term, global_step=self.step, var_list=self.G_var)
 
         self.balance = self.gamma * self.d_loss_real - self.g_loss
         self.measure = self.d_loss_real + tf.abs(self.balance)
@@ -358,6 +375,7 @@ class Trainer(object):
             tf.summary.scalar("misc/d_lr", self.d_lr),
             tf.summary.scalar("misc/g_lr", self.g_lr),
             tf.summary.scalar("misc/balance", self.balance),
+            tf.summary.scalar("misc/pt", self.pulling_term),
         ])
 
     def build_test_model(self):
