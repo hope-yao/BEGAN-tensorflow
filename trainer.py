@@ -167,7 +167,7 @@ class Trainer(object):
             split = 0.1
             l = len(data)  # length of data
             n1 = int(split * l)  # split for testing
-            indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]#sample(range(l), n1)
+            indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16] * 2#sample(range(l), n1)
 
             x_test = data[indices]
             y_test = label[indices]

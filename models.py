@@ -7,52 +7,52 @@ def monitor(x,z,z_num=2):
     start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
     end_z = tf.slice(z, [16 + 3, 0], [1, z_num])
     intp_z1 = start_z
-    num = 16
+    num = 16 * 2
     for ci in range(1, num, 1):
         intp_z1 = tf.concat([intp_z1, start_z + (end_z - start_z) * ci / (num - 1)], 0)
     inc_z0 = -(end_z - start_z) * 0
-    num = 16
+
     for ci in range(1, num, 1):
         inc_z0 = tf.concat([inc_z0, -(end_z - start_z) * ci / (num - 1)], 0)
     inc_z1 = (end_z - start_z) * 0
-    num = 16
+
     for ci in range(1, num, 1):
         inc_z1 = tf.concat([inc_z1, (end_z - start_z) * ci / (num - 1)], 0)
-    morph0 = tf.slice(z, [16, 0], [16, z_num]) - (end_z - start_z)
-    morph1 = tf.slice(z, [16, 0], [16, z_num]) + (end_z - start_z)
+    morph0 = tf.slice(z, [num, 0], [num, z_num]) - (end_z - start_z)
+    morph1 = tf.slice(z, [num, 0], [num, z_num]) + (end_z - start_z)
 
-    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
-    end_z = tf.slice(z, [16 + 5, 0], [1, z_num])
+    start_z = tf.slice(z, [num + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [num + 5, 0], [1, z_num])
     intp_z2 = start_z
-    num = 16
+
     for ci in range(1, num, 1):
         intp_z2 = tf.concat([intp_z2, start_z + (end_z - start_z) * ci / (num - 1)], 0)
     inc_z2 = -(end_z - start_z) * 0
-    num = 16
+
     for ci in range(1, num, 1):
         inc_z2 = tf.concat([inc_z2, -(end_z - start_z) * ci / (num - 1)], 0)
-    morph2 = tf.slice(z, [16, 0], [16, z_num]) + (end_z - start_z)
+    morph2 = tf.slice(z, [num, 0], [num, z_num]) + (end_z - start_z)
 
     # extrapolation
-    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
-    end_z = tf.slice(z, [16 + 3, 0], [1, z_num])
+    start_z = tf.slice(z, [num + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [num + 3, 0], [1, z_num])
     extp_z1 = start_z
-    num = 16
+
     for ci in range(1, num, 1):
         extp_z1 = tf.concat([extp_z1, start_z - (end_z - start_z) * ci / (num - 1)], 0)
     extp_z11 = end_z
-    num = 16
+
     for ci in range(1, num, 1):
         extp_z11 = tf.concat([extp_z11, end_z - (start_z - end_z) * ci / (num - 1)], 0)
 
-    start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
-    end_z = tf.slice(z, [16 + 5, 0], [1, z_num])
+    start_z = tf.slice(z, [num + 4, 0], [1, z_num])
+    end_z = tf.slice(z, [num + 5, 0], [1, z_num])
     extp_z2 = start_z
-    num = 16
+
     for ci in range(1, num, 1):
         extp_z2 = tf.concat([extp_z2, start_z - (end_z - start_z) * ci / (num - 1)], 0)
     extp_z21 = end_z
-    num = 16
+
     for ci in range(1, num, 1):
         extp_z21 = tf.concat([extp_z21, end_z - (start_z - end_z) * ci / (num - 1)], 0)
 
