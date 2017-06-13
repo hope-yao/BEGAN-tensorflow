@@ -174,9 +174,9 @@ class Trainer(object):
             return (x_train[0:num], y_train[0:num]), (x_test[0:1000], y_test[0:1000])
 
         def Mnist64(datadir, num=200000):
-            aa = np.load('/home/hope-yao/Documents/Data/MNIST/Mnist64/Mnist400.npy')
-            data = aa.item()['data_train']
-            label = aa.item()['label_train']
+            aa = np.load('/home/hope-yao/Documents/Data/MNIST/Mnist64/Mnist4k_b.npy')
+            data = aa.item()['data']
+            label = aa.item()['label']
             indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]#sample(range(l), n1)
 
             x_test = data[indices]
@@ -190,13 +190,13 @@ class Trainer(object):
         self.datadir='/home/hope-yao/Documents/Data'
         (self.X_train, self.y_train), (self.X_test, self.y_test) = Mnist64(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        feed_dict_fix = {self.x: x_input_fix}
+        feed_dict_fix = {self.x: x_input_fix, self.z: np.random.rand(self.batch_size,self.z_num)*2-1}
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
             for i in tqdm(range(it_per_ep)):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input }
+                feed_dict = {self.x: x_input, self.z: np.random.rand(self.batch_size,self.z_num)*2-1 }
                 result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,self.pulling_term],feed_dict)
                 print(result)
 
@@ -220,51 +220,17 @@ class Trainer(object):
                     self.summary_writer.add_summary(summary, counter)
                     self.summary_writer.flush()
 
-                    # for step in trange(self.start_step, self.max_step):
-        #     fetch_dict = {
-        #         "k_update": self.k_update,
-        #         "measure": self.measure,
-        #     }
-        #     if step % self.log_step == 0:
-        #         fetch_dict.update({
-        #             "summary": self.summary_op,
-        #             "g_loss": self.g_loss,
-        #             "d_loss": self.d_loss,
-        #             "k_t": self.k_t,
-        #         })
-        #     result = self.sess.run(fetch_dict)
-        #
-        #     measure = result['measure']
-        #     measure_history.append(measure)
-        #
-        #     if step % self.log_step == 0:
-        #         self.summary_writer.add_summary(result['summary'], step)
-        #         self.summary_writer.flush()
-        #
-        #         g_loss = result['g_loss']
-        #         d_loss = result['d_loss']
-        #         k_t = result['k_t']
-        #
-        #         print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
-        #               format(step, self.max_step, d_loss, g_loss, measure, k_t))
-        #
-        #     if step % (self.log_step * 10) == 0:
-        #         x_fake = self.generate(z_fixed, self.model_dir, idx=step)
-        #         self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
-        #
-        #     if step % self.lr_update_step == self.lr_update_step - 1:
-        #         self.sess.run([self.g_lr_update, self.d_lr_update])
-        #         #cur_measure = np.mean(measure_history)
-        #         #if cur_measure > prev_measure * 0.99:
-        #         #prev_measure = cur_measure
+                if counter in [1e5, 2e5, 3e5, 4e5, 5e5]:
+                    self.sess.run([self.g_lr_update, self.d_lr_update])
 
     def build_model(self):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
         self.x_img = denorm_img(x,self.data_format)
 
-        self.z = tf.random_uniform(
-                (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
+        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num])
+        # self.z = tf.random_uniform(
+        #         (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
         G, self.G_var = GeneratorCNN(

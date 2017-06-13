@@ -1,5 +1,21 @@
 /home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_09_26_05
 d_lr=0.00004, g_lr=0.00004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001
+
 /home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_09_35_50
 d_lr=0.00004, g_lr=0.00004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +1pt(everywhere)
 
+/home/exx/Documents/Hope/BEGAN-tensorflow-Mnist64/logs/GAN/GAN_2017_06_12_10_13_53
+d_lr=0.00004, g_lr=0.0004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +1pt
+
+/home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_09_44_47
+d_lr=0.00004, g_lr=0.0004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +0.2pt
+
+/home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_11_51_12
+d_lr=0.00004, g_lr=0.004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +0.2pt
+
+========MNIST_D
+/home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_11_51_12
+d_lr=0.00004, g_lr=0.004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +0.2pt
+
+/home/hope-yao/Documents/BEGAN-tensorflow/logs/GAN/GAN_2017_06_12_14_32_21
+d_lr=0.00004, g_lr=0.0004, conv=64, z_num=64, bs=16, gamma=0.5, lambda_k=0.001 +0.2pt     -----Mnist64_4k_d, current best
