@@ -16,7 +16,7 @@ def gram_matrix(x):
     features = backend.batch_flatten(backend.permute_dimensions(x, (2, 0, 1)))
     #     features_mean,features_var =tf.nn.moments(features,axes=[0])
     features_mean = tf.reduce_mean(features, 0)
-    features = (features - features_mean) / 1
+    # features = (features - features_mean) / 1
     gram = backend.dot(features, backend.transpose(features))
     return gram
 
@@ -241,11 +241,11 @@ def total_style_cost(combination_image, style_image, z1, z2, bs):
     weight = tf.sqrt(tf.reduce_sum(tf.square(dd), 2))  # dist[i,j] = z1[i]-z2[j]
     # weight = weight / tf.tile(tf.expand_dims(tf.reduce_sum(dist, 1), 1),[1, 16])  # row-wise summation, duplicate to matrix, normalize
 
-    sl1 = style_loss(conv_out2_S, conv_out2, weight)
-    sl2 = style_loss(conv_out4_S, conv_out4, weight)
-    sl3 = style_loss(conv_out7_S, conv_out7, weight)
-    sl4 = style_loss(conv_out10_S, conv_out10, weight)
-    sl = sl1 + sl2 + sl3 + sl4
+    sl1 = style_loss(conv_out2_S, conv_out2, bs, weight)
+    sl2 = style_loss(conv_out4_S, conv_out4, bs, weight)
+    sl3 = style_loss(conv_out7_S, conv_out7, bs, weight)
+    sl4 = style_loss(conv_out10_S, conv_out10, bs, weight)
+    sl = 0.5*sl1 + 0.5*sl2 + 1.5*sl3 + 1.5*sl4
 
     return sl
     # return 1/(3-tf.log(sl))

@@ -206,19 +206,20 @@ class Trainer(object):
         # self.datadir='/home/doi5/Documents/Hope'
         # (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        feed_dict_fix = {self.x: x_input_fix, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
+        feed_dict_fix = {self.x: x_input_fix, self.z:np.random.rand(self.batch_size,self.z_num)*2-1, self.x_fix:x_input_fix[0:1]}
+
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
             for i in tqdm(range(it_per_ep)):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
+                feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1, self.x_fix:x_input_fix[0:1]}
                 result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,
                                         self.style_loss,  self.style_loss1, self.style_loss2, self.style_loss3,
                                         self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3, self.d_fvr],feed_dict)
                 print(result)
 
-                if counter in [3e4, 6e4, 9e4, 12e5, 15e5]:
+                if counter in [3e4, 6e5, 12e5, 15e5]:
                     self.sess.run([self.g_lr_update, self.d_lr_update])
 
                 if counter % 100 == 0:
@@ -246,6 +247,9 @@ class Trainer(object):
         self.x_img = denorm_img(self.normx,self.data_format)
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num])
 
+        self.x_fix = tf.placeholder(tf.float32, [1, 1, 104, 104])
+        fix_img = tf.tile(self.x_fix[0:1], (self.batch_size, 1, 1, 1))
+
         # self.z = tf.random_uniform(
         #         (tf.shape(self.normx)[0], self.z_num), minval=-1.0, maxval=1.0)
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
@@ -255,30 +259,32 @@ class Trainer(object):
                 self.repeat_num, self.data_format, reuse=False)
 
         d_out, self.D_z, self.D_z1, self.D_z2, self.D_z3, self.D_var = DiscriminatorCNN(
-                tf.concat([G, self.normx], 0), self.channel, self.z_num, self.repeat_num,
+                tf.concat([G, self.normx, fix_img], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
-        AE_G, AE_x = tf.split(d_out, 2)
+        AE_G, AE_x, _ = tf.split(d_out, 3)
 
         from keras.layers import Flatten
-        z_d_gen, z_d_real = tf.split(self.D_z, 2)
+        z_d_gen, z_d_real, z_d_gen0  = tf.split(self.D_z, 3)
         self.pulling_term =  calc_pt(z_d_gen, batch_size=self.batch_size)
-        z_d_gen1, z_d_real1 = tf.split(self.D_z1, 2)
+        z_d_gen1, z_d_real1, z_d_gen10 = tf.split(self.D_z1, 3)
         self.pulling_term1 =  calc_pt(Flatten()(z_d_gen1), batch_size=self.batch_size)
-        z_d_gen2, z_d_real2 = tf.split(self.D_z2, 2)
+        z_d_gen2, z_d_real2, z_d_gen20 = tf.split(self.D_z2, 3)
         self.pulling_term2 =  calc_pt(Flatten()(z_d_gen2), batch_size=self.batch_size)
-        z_d_gen3, z_d_real3 = tf.split(self.D_z3, 2)
+        z_d_gen3, z_d_real3, z_d_gen30 = tf.split(self.D_z3, 3)
         self.pulling_term3 =  calc_pt(Flatten()(z_d_gen3), batch_size=self.batch_size)
 
         from style import style_loss, total_style_cost
-        # self.style_loss =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([self.normx,self.normx,self.normx],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
+        self.style_loss =  0.5e-13*total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([fix_img,fix_img,fix_img],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
         # self.style_loss = tf.Variable(0.)
-        self.style_loss1 = style_loss(tf.sigmoid(z_d_real1),tf.sigmoid(z_d_gen1),self.batch_size,1)
-        self.style_loss2 = style_loss(tf.sigmoid(z_d_real2),tf.sigmoid(z_d_gen2),self.batch_size,1)
-        self.style_loss3 = style_loss(tf.sigmoid(z_d_real3),tf.sigmoid(z_d_gen3),self.batch_size,1)
-        self.style_loss = self.style_loss1 + self.style_loss2 + self.style_loss3
+        # self.style_loss1 = style_loss(tf.sigmoid(z_d_real1),tf.sigmoid(z_d_gen10),self.batch_size,1)
+        # self.style_loss2 = style_loss(tf.sigmoid(z_d_real2),tf.sigmoid(z_d_gen20),self.batch_size,1)
+        # self.style_loss3 = style_loss(tf.sigmoid(z_d_real3),tf.sigmoid(z_d_gen30),self.batch_size,1)
+        # self.style_loss = self.style_loss1*0.3 + self.style_loss2*0.6 + self.style_loss3*2.1  #maybe longer strok
+        self.style_loss1 = self.style_loss2 = self.style_loss3 = tf.Variable(0.)
 
-        # self.d_fvr = tf.reduce_mean(tf.square(tf.reduce_mean(AE_G+1,axis=(1,2,3)) - tf.reduce_mean(AE_x+1,axis=(1,2,3))))
-        self.d_fvr = tf.Variable(0.)
+        tmp = ( tf.reduce_mean(G + 1, axis=(1, 2, 3)) - tf.reduce_mean(self.normx + 1, axis=(1, 2, 3)) ) / tf.reduce_mean(self.normx + 1, axis=(1, 2, 3))
+        self.d_fvr = tf.reduce_mean(tf.abs(tmp))
+        # self.d_fvr = tf.Variable(0.)
 
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
@@ -291,16 +297,18 @@ class Trainer(object):
         g_optimizer, d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
         self.d_loss_real = tf.reduce_mean(tf.square(AE_x - self.normx))
-        self.d_loss_fake = tf.reduce_mean(tf.square(AE_G - G))
+        # self.d_loss_fake = tf.reduce_mean(tf.square(AE_G - G))
+        self.d_loss_fake = tf.reduce_mean(tf.square(self.normx - G))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
         pt_r = 0.2
-        self.g_loss = tf.reduce_mean(tf.square(AE_G - G))*(1+pt_r) + pt_r*self.pulling_term + 0.4*self.style_loss #+ 0.25* self.d_fvr
+        # self.g_loss = self.d_loss_fake*(1+pt_r) + pt_r*self.pulling_term + 0.4*self.style_loss + self.d_fvr
+        self.g_loss = self.d_loss_fake + self.style_loss #+ self.d_fvr
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
 
-        self.balance = self.gamma * self.d_loss_real - self.g_loss
+        self.balance = self.gamma * self.d_loss_real - self.d_loss_fake
         self.measure = self.d_loss_real + tf.abs(self.balance)
 
         with tf.control_dependencies([d_optim, g_optim]):
