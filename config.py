@@ -24,7 +24,7 @@ net_arg.add_argument('--z_num', type=int, default=2, choices=[64, 128])
 data_arg = add_argument_group('Data')
 data_arg.add_argument('--dataset', type=str, default='CelebA')
 data_arg.add_argument('--split', type=str, default='train')
-data_arg.add_argument('--batch_size', type=int, default=16)
+data_arg.add_argument('--batch_size', type=int, default=32)
 data_arg.add_argument('--grayscale', type=str2bool, default=False)
 data_arg.add_argument('--num_worker', type=int, default=4)
 
@@ -50,7 +50,7 @@ misc_arg.add_argument('--save_step', type=int, default=5000)
 misc_arg.add_argument('--num_log_samples', type=int, default=3)
 misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
 misc_arg.add_argument('--log_dir', type=str, default='logs')
-misc_arg.add_argument('--data_dir', type=str, default='/home/hope-yao/Documents/Data')
+misc_arg.add_argument('--data_dir', type=str, default='/home/doi5/Documents/Hope')
 misc_arg.add_argument('--test_data_path', type=str, default=None,
                       help='directory with images which will be used in test sample generation')
 misc_arg.add_argument('--sample_per_image', type=int, default=64,

@@ -235,7 +235,7 @@ def true_activation(style_image, W_vgg, b_vgg):
 
 def total_style_cost(combination_image, style_image, z1, z2):
     # Style transfer
-    W_vgg, b_vgg = load_vgg('/home/hope-yao/Documents/Data/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
+    W_vgg, b_vgg = load_vgg('/home/doi5/Documents/Hope/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
     gen_conv_out = gen_activation(combination_image, W_vgg, b_vgg)
     style_conv_out = true_activation(style_image, W_vgg, b_vgg)
 
@@ -244,7 +244,8 @@ def total_style_cost(combination_image, style_image, z1, z2):
     [conv_out1_S, conv_out2_S, conv_out3_S, conv_out4_S, conv_out5_S, conv_out6_S, conv_out7_S, conv_out8_S, conv_out9_S,
                     conv_out10_S, conv_out11_S, conv_out12_S, conv_out13_S] = style_conv_out
 
-    dd = tf.tile(tf.expand_dims(z1, 1), [1, 16, 1]) - tf.tile(tf.expand_dims(z2, 0), [16, 1, 1])
+    num = 32
+    dd = tf.tile(tf.expand_dims(z1, 1), [1, num, 1]) - tf.tile(tf.expand_dims(z2, 0), [num, 1, 1])
     weight = tf.sqrt(tf.reduce_sum(tf.square(dd), 2))  # dist[i,j] = z1[i]-z2[j]
     # weight = weight / tf.tile(tf.expand_dims(tf.reduce_sum(dist, 1), 1),[1, 16])  # row-wise summation, duplicate to matrix, normalize
 

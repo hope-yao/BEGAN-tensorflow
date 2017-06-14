@@ -116,7 +116,17 @@ class Trainer(object):
         self.logdir, self.modeldir = creat_dir('GAN')
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.logdir)
+
+        # # fix y and generate in z plan
+        # sess = tf.Session()
         # self.saver.restore(sess, "./models/GAN/GAN_2017_05_31_14_32_26/experiment_155085.ckpt")
+        # y_input_fix = np.asarray([[1, 0]] * 16, dtype='float32')
+        # z_input_fix = np.asarray([[i / 3., j / 3.] for i in range(4) for j in range(4)], dtype='float32')
+        # feed_dict_fix = {self.y: y_input_fix, self.z: z_input_fix}
+        # g_img = sess.run(self.G, feed_dict_fix)
+        # nrow = 4
+        # save_image(g_img, '{}/itr{}.png'.format(self.logdir, 10), nrow=nrow)
+
         sv = tf.train.Supervisor(logdir=self.model_dir,
                                 is_chief=True,
                                 saver=self.saver,
@@ -152,7 +162,7 @@ class Trainer(object):
             import h5py
             from random import sample
             import numpy as np
-            f = h5py.File("rectcrs_z.hdf5", "r")
+            f = h5py.File("/home/doi5/Documents/Hope/rectcrs_z.hdf5", "r")
             # f = h5py.File(datadir + "/rect_rectcrs0.hdf5", "r")
             data_key = f.keys()[0]
             data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)

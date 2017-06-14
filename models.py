@@ -7,7 +7,7 @@ def monitor(x,z,z_num=2):
     start_z = tf.slice(z, [16 + 4, 0], [1, z_num])
     end_z = tf.slice(z, [16 + 3, 0], [1, z_num])
     intp_z1 = start_z
-    num = 16 * 2
+    num = 32
     for ci in range(1, num, 1):
         intp_z1 = tf.concat([intp_z1, start_z + (end_z - start_z) * ci / (num - 1)], 0)
     inc_z0 = -(end_z - start_z) * 0
@@ -89,13 +89,14 @@ def BEGAN_dec(input, hidden_num, input_channel=3, data_format='NCHW', repeat_num
     out = slim.conv2d(x, input_channel, 3, 1, activation_fn=None, data_format=data_format)
     return out
 
-def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reuse):
+
+def orig_GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reuse):
     with tf.variable_scope("G", reuse=reuse) as vs:
-        z = tf.concat([z,y_data],1)
+        z = tf.concat([z, y_data], 1)
 
         x = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
         x = reshape(x, 8, 8, hidden_num, data_format)
-        
+
         for idx in range(repeat_num):
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
@@ -106,6 +107,36 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
 
     variables = tf.contrib.framework.get_variables(vs)
     return out, variables
+
+
+def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reuse):
+    with tf.variable_scope("G", reuse=reuse) as vs:
+        z = tf.concat([z, y_data], 1)
+
+        # Decoder0
+        x0 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
+        x0 = reshape(x0, 8, 8, hidden_num, data_format)
+        for idx in range(repeat_num):
+            x0 = slim.conv2d(x0, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x0 = slim.conv2d(x0, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            if idx < repeat_num - 1:
+                x0 = upscale(x0, 2, data_format)
+
+        # Decoder1
+        x1 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
+        x1 = reshape(x1, 8, 8, hidden_num, data_format)
+
+        for idx in range(repeat_num):
+            x1 = slim.conv2d(x1, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x1 = slim.conv2d(x1, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            if idx < repeat_num - 1:
+                x1 = upscale(x1, 2, data_format)
+
+        out = slim.conv2d(x0+x1, output_num, 3, 1, activation_fn=None, data_format=data_format)
+
+    variables = tf.contrib.framework.get_variables(vs)
+    return out, variables
+
 
 def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, data_format):
     with tf.variable_scope("D") as vs:
