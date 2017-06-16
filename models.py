@@ -111,8 +111,6 @@ def orig_GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format
 
 def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reuse):
     with tf.variable_scope("G", reuse=reuse) as vs:
-        z = tf.concat([z, y_data], 1)
-
         # Decoder0
         x0 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
         x0 = reshape(x0, 8, 8, hidden_num, data_format)
@@ -121,6 +119,7 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
             x0 = slim.conv2d(x0, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x0 = upscale(x0, 2, data_format)
+        out0 = slim.conv2d(x0, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
         # Decoder1
         x1 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -131,11 +130,15 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
             x1 = slim.conv2d(x1, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x1 = upscale(x1, 2, data_format)
+        out1 = slim.conv2d(x1, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
-        out = slim.conv2d(x0+x1, output_num, 3, 1, activation_fn=None, data_format=data_format)
+        y0 = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, 0], 1), 1), 1), [1, 1, 64, 64])
+        y1 = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, 1], 1), 1), 1), [1, 1, 64, 64])
+        out = y0 * out0 + y1 * out1
+        out = slim.conv2d(out, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
     variables = tf.contrib.framework.get_variables(vs)
-    return out, variables
+    return out, variables, out0, out1
 
 
 def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, data_format):
