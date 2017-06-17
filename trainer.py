@@ -189,6 +189,19 @@ class Trainer(object):
             # return (x_train, y_train, 0), (x_test, y_test, 0)
             return (x_train[0:num], y_train[0:num], z_train[0:num]), (x_test[0:1000], y_test[0:1000], z_test[0:1000])
 
+        def Mnist64(datadir, num=200000):
+            aa = np.load('/home/doi5/Documents/Hope/Mnist4k_b.npy')
+            data = aa.item()['data']
+            label = aa.item()['label']
+            indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]*2#sample(range(l), n1)
+
+            x_test = data[indices]
+            y_test = label[indices]
+            x_train = np.delete(data, indices, 0)
+            y_train = np.delete(label, indices, 0)
+            return ( np.expand_dims((x_train+1)*127.5, axis=1), y_train), (np.expand_dims((x_test+1)*127.5, axis=1), y_test)
+
+
         counter = 0
         from tqdm import tqdm
         self.datadir='/home/hope-yao/Documents/Data'
@@ -305,7 +318,7 @@ class Trainer(object):
                 tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
 
-        z_d_gen, z_d_real = tf.split(self.D_z, 2)
+        z_d_gen = tf.slice(self.D_z, [0, 0], [self.batch_size, self.z_num])
         nom = tf.matmul(z_d_gen, tf.transpose(z_d_gen, perm=[1, 0]))
         denom = tf.sqrt(tf.reduce_sum(tf.square(z_d_gen), reduction_indices=[1], keep_dims=True))
         pt = tf.square(tf.transpose((nom / denom), (1, 0)) / denom)
@@ -377,7 +390,7 @@ class Trainer(object):
         self.style_loss, self.sw, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2 =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)), self.z_gen, self.z)
         # self.style_loss = white_style(tf.transpose(G,(0,2,3,1)))
         self.g_loss_reg = tf.reduce_mean(tf.abs(G_reg - x))
-        self.basis_loss = tf.reduce_sum(tf.clip_by_value(G0,0,1)*tf.clip_by_value(G1,0,1))
+        self.basis_loss = tf.reduce_sum(tf.sigmoid(G0)*tf.sigmoid(G1))
         # self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss + self.pulling_term + self.g_loss_reg
         self.g_loss = self.g_loss_reg + self.d_loss_fake + self.pulling_term*10
 
