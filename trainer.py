@@ -205,11 +205,11 @@ class Trainer(object):
         counter = 0
         from tqdm import tqdm
         self.datadir='/home/hope-yao/Documents/Data'
-        (self.X_train, self.y_train, self.z_train), (self.X_test, self.y_test, self.z_test) = CelebA(self.datadir)
+        # (self.X_train, self.y_train, self.z_train), (self.X_test, self.y_test, self.z_test) = CelebA(self.datadir)
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = Mnist64(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        z_input_fix = self.z_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        # z_input = z_input_fix = np.random.rand(self.batch_size,self.z_num).astype('float32')# temperary
+        z_input_fix = np.random.rand(self.batch_size,self.z_num).astype('float32')# temperary, (-1,1)
         feed_dict_fix = {self.x: x_input_fix, self.y: y_input_fix, self.z: z_input_fix}
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
@@ -217,21 +217,23 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                z_input = self.z_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input,self.y: y_input,self.z: z_input}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.g_loss_reg, self.basis_loss],feed_dict)
+                z_input = np.random.rand(self.batch_size, self.z_num).astype('float32')  # temperary
+                feed_dict = {self.x: x_input,self.y: y_input, self.z: z_input}
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.basis_loss],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
                     self.sess.run([self.g_lr_update, self.d_lr_update])
 
                 if counter % 100 == 0:
-                    x_img, x_rec, g_img, g_rec,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2, G0, G1, G_reg = \
-                        self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G, self.intp_d1, self.extp_d1, self.extp_d11,
-                                       self.intp_d2, self.extp_d2, self.extp_d21,self.inc_z0,self.inc_z1,self.inc_z2,
-                                       self.morph0,self.morph1,self.morph2, self.G0, self.G1, self.G_reg], feed_dict_fix)
+                    # x_img, x_rec, g_img, g_rec,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2, D0, D1, D2, D3, G0, G1, G2, G3 = \
+                    #     self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G, self.intp_d1, self.extp_d1, self.extp_d11,
+                    #                    self.intp_d2, self.extp_d2, self.extp_d21,self.inc_z0,self.inc_z1,self.inc_z2,
+                    #                    self.morph0,self.morph1,self.morph2, self.D0, self.D1, self.D2, self.D3, self.G0, self.G1, self.G2, self.G3], feed_dict_fix)
+                    x_img, x_rec, g_img, g_rec, D0, D1, D2, D3, G0, G1, G2, G3 = \
+                        self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G, self.D0, self.D1, self.D2, self.D3, self.G0, self.G1, self.G2, self.G3], feed_dict_fix)
                     nrow = self.batch_size
-                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec, G0, G1, G_reg])
+                    all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec, D0, D1, D2, D3, G0, G1, G2, G3])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
                     # from sklearn.manifold import TSNE
                     # X = np.asarray(D_z)[0]
@@ -302,19 +304,18 @@ class Trainer(object):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
         self.x_img = denorm_img(x,self.data_format)
-        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num], name='z_input')
+        # self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num], name='z_input')
         # self.y = tf.cast(tf.multinomial(tf.zeros([self.batch_size, 2]), 2), tf.float32) #second 2 is number of attributes
-        self.y = tf.placeholder(tf.float32, [self.batch_size, 2], name='y_input')
+        self.y = tf.placeholder(tf.float32, [self.batch_size, 4], name='y_input')
 
-        self.z_gen = tf.random_uniform(
-                (self.batch_size, self.z_num), minval=-1.0, maxval=1.0)
+        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num], name='z_input')
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
-        G_out, self.G_var, G0, G1 = GeneratorCNN(
-            tf.tile(self.y, [2, 1]), tf.concat([self.z, self.z_gen],0), self.conv_hidden_num, self.channel,
+        G, self.G_var, G0, G1 , G2, G3 = GeneratorCNN(
+                self.y, self.z, self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
-        G_reg, G = tf.split(G_out, 2)
-        d_out, self.D_z, self.D_var = DiscriminatorCNN( self.y,
+
+        d_out, self.D_z, self.D_var, D0, D1 , D2, D3 = DiscriminatorCNN( self.y,
                 tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
 
@@ -352,28 +353,34 @@ class Trainer(object):
         # d_out = BEGAN_dec(tf.concat([self.z_d,intp_z1,intp_z2],0), hidden_num=16, input_channel=1, data_format='NCHW',
         #                        repeat_num=4)
         # self.D_var = tf.contrib.framework.get_variables(vs_d)
-        AE_G, AE_x,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2  = tf.split(d_out, 14)
+        # AE_G, AE_x,intp_d1,extp_d1,extp_d11,intp_d2,extp_d2,extp_d21,inc_z0,inc_z1,inc_z2,morph0,morph1,morph2  = tf.split(d_out, 14)
+        AE_G, AE_x = tf.split(d_out, 2)
         # AE_G = tf.slice(d_out, [0,0,0,0],[16,1,64,64])
         # AE_x = tf.slice(d_out, [15,0,0,0],[16,1,64,64])
         # d_intp1 = tf.slice(d_out, [16*2-1,0,0,0],[16,1,64,64])
         # d_intp2 = tf.slice(d_out, [16*2+16-1,0,0,0],[16,1,64,64])
-        self.intp_d1 = denorm_img(intp_d1, self.data_format)
-        self.extp_d1 = denorm_img(extp_d1, self.data_format)
-        self.extp_d11 = denorm_img(extp_d11, self.data_format)
-        self.intp_d2 = denorm_img(intp_d2, self.data_format)
-        self.extp_d2 = denorm_img(extp_d2, self.data_format)
-        self.extp_d21 = denorm_img(extp_d21, self.data_format)
-        self.inc_z0 = denorm_img(inc_z0, self.data_format)
-        self.inc_z1 = denorm_img(inc_z1, self.data_format)
-        self.inc_z2 = denorm_img(inc_z2, self.data_format)
-        self.morph0 = denorm_img(morph0, self.data_format)
-        self.morph1 = denorm_img(morph1, self.data_format)
-        self.morph2 = denorm_img(morph2, self.data_format)
+        # self.intp_d1 = denorm_img(intp_d1, self.data_format)
+        # self.extp_d1 = denorm_img(extp_d1, self.data_format)
+        # self.extp_d11 = denorm_img(extp_d11, self.data_format)
+        # self.intp_d2 = denorm_img(intp_d2, self.data_format)
+        # self.extp_d2 = denorm_img(extp_d2, self.data_format)
+        # self.extp_d21 = denorm_img(extp_d21, self.data_format)
+        # self.inc_z0 = denorm_img(inc_z0, self.data_format)
+        # self.inc_z1 = denorm_img(inc_z1, self.data_format)
+        # self.inc_z2 = denorm_img(inc_z2, self.data_format)
+        # self.morph0 = denorm_img(morph0, self.data_format)
+        # self.morph1 = denorm_img(morph1, self.data_format)
+        # self.morph2 = denorm_img(morph2, self.data_format)
         self.G0 = denorm_img(G0, self.data_format)
         self.G1 = denorm_img(G1, self.data_format)
+        self.G2 = denorm_img(G2, self.data_format)
+        self.G3 = denorm_img(G3, self.data_format)
+        self.D0 = denorm_img(D0, self.data_format)
+        self.D1 = denorm_img(D1, self.data_format)
+        self.D2 = denorm_img(D2, self.data_format)
+        self.D3 = denorm_img(D3, self.data_format)
 
         self.G = denorm_img(G, self.data_format)
-        self.G_reg = denorm_img(G_reg, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
 
         if self.optimizer == 'adam':
@@ -387,12 +394,12 @@ class Trainer(object):
         self.d_loss_fake = tf.reduce_mean(tf.abs(AE_G - G))
 
         self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake
-        self.style_loss, self.sw, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2 =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)), self.z_gen, self.z)
+        # self.style_loss, self.sw, self.conv_out2_S, self.conv_out2, self.sl1, self.conv_out4_S, self.conv_out4, self.sl2 =  total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([x,x,x],1),(0,2,3,1)), self.z_gen, self.z)
         # self.style_loss = white_style(tf.transpose(G,(0,2,3,1)))
-        self.g_loss_reg = tf.reduce_mean(tf.abs(G_reg - x))
+        self.style_loss = tf.Variable(0.)
         self.basis_loss = tf.reduce_sum(tf.sigmoid(G0)*tf.sigmoid(G1))
         # self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss + self.pulling_term + self.g_loss_reg
-        self.g_loss = self.g_loss_reg + self.d_loss_fake + self.pulling_term*10
+        self.g_loss = self.d_loss_fake + self.pulling_term * 2
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
@@ -420,7 +427,6 @@ class Trainer(object):
             tf.summary.scalar("misc/g_lr", self.g_lr),
             tf.summary.scalar("misc/balance", self.balance),
             tf.summary.scalar("misc/pulling_term", self.pulling_term),
-            tf.summary.scalar("misc/g_loss_reg", self.g_loss_reg),
             tf.summary.scalar("misc/basis_loss", self.basis_loss),
         ])
 
