@@ -228,7 +228,7 @@ def true_activation(style_image, W_vgg, b_vgg):
 
 def total_style_cost(combination_image, style_image, z1, z2, bs):
     # Style transfer
-    W_vgg, b_vgg = load_vgg('/home/doi5/Documents/Hope/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
+    W_vgg, b_vgg = load_vgg('/home/hope-yao/Documents/Data/VGG/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
     gen_conv_out = gen_activation(combination_image, W_vgg, b_vgg)
     style_conv_out = true_activation(style_image, W_vgg, b_vgg)
 
@@ -245,7 +245,7 @@ def total_style_cost(combination_image, style_image, z1, z2, bs):
     sl2 = style_loss(conv_out4_S, conv_out4, bs, weight)
     sl3 = style_loss(conv_out7_S, conv_out7, bs, weight)
     sl4 = style_loss(conv_out10_S, conv_out10, bs, weight)
-    sl = 0.5*sl1 + 0.5*sl2 + 1.5*sl3 + 1.5*sl4
+    sl = 0.5*sl1 + 0.5*sl2 + 1.0*sl3 + 2.0*sl4
 
     return sl
     # return 1/(3-tf.log(sl))

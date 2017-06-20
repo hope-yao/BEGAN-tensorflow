@@ -12,9 +12,6 @@ from collections import deque
 from models import *
 from utils import save_image
 
-def next(loader):
-    return loader.next()[0].data.numpy()
-
 def to_nhwc(image, data_format):
     if data_format == 'NCHW':
         new_image = nchw_to_nhwc(image)
@@ -45,6 +42,17 @@ def slerp(val, low, high):
     if so == 0:
         return (1.0-val) * low + val * high # L'Hopital's rule/LERP
     return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
+
+def  material104():
+    import scipy.io as sio
+    WB = sio.loadmat('/home/hope-yao/Documents/Data/material/WB_sm.mat')['WB_sm'][0:128]
+    x_train = WB.astype('float32') * 255.
+    x_train = np.reshape(x_train, (x_train.shape[0], 100, 100, 1))  # adapt this if using `channels_first` image data format
+    X_train = np.ones((x_train.shape[0], 104, 104, 1))
+    X_train[:, 2:102, 2:102, :] = x_train
+    X_train = np.transpose(X_train, (0, 3, 1, 2))
+    y_train = np.eye(WB.shape[0])
+    return (X_train, y_train), (X_train, y_train)
 
 
 def CelebA(datadir, num=200000):
@@ -106,9 +114,8 @@ def creat_dir(network_type):
 
 
 class Trainer(object):
-    def __init__(self, config, data_loader):
-        self.config = config
-        self.data_loader = data_loader
+    def __init__(self, config):
+
         self.dataset = config.dataset
 
         self.beta1 = config.beta1
@@ -138,10 +145,7 @@ class Trainer(object):
         self.use_gpu = config.use_gpu
         self.data_format = config.data_format
 
-        # _, height, width, self.channel = \
-        #         get_conv_shape(self.data_loader, self.data_format)
-        # self.repeat_num = int(np.log2(height)) - 2
-        height = width = 192
+        height = width = 104
         self.channel = 1
         self.repeat_num = 4
 
@@ -187,42 +191,28 @@ class Trainer(object):
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
-
         counter = 0
         from tqdm import tqdm
-        import scipy.io as sio
-        WB = sio.loadmat('/home/doi5/Documents/Hope/WB_sm.mat')['WB_sm']
-        x_train = WB
-        x_test = WB
-        x_train = x_train.astype('float32') * 255.
-        x_test = x_test.astype('float32') * 255.
-        x_train = np.reshape(x_train, (1000, 100, 100, 1))  # adapt this if using `channels_first` image data format
-        x_test = np.reshape(x_test, (1000, 100, 100, 1))  # adapt this if using `channels_first` image data format
-        self.X_train = self.X_test = np.zeros((1000, 104, 104, 1))
-        self.X_train[:, 2:102, 2:102, :] = x_train
-        self.X_test[:, 2:102, 2:102, :] = x_test
-        self.X_train = np.transpose(self.X_train,(0,3,1,2))
-        self.X_test = np.transpose(self.X_test,(0,3,1,2))
-        # self.datadir='/home/doi5/Documents/Hope'
-        # (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = material104()
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        feed_dict_fix = {self.x: x_input_fix, self.z:np.random.rand(self.batch_size,self.z_num)*2-1, self.x_fix:x_input_fix[0:1]}
+        y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
+        feed_dict_fix = {self.x: x_input_fix, self.z: y_input_fix, self.x_fix:x_input_fix[0:1]}
 
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
             for i in tqdm(range(it_per_ep)):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1, self.x_fix:x_input_fix[0:1]}
+                y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
+                feed_dict = {self.x: x_input, self.z: y_input, self.x_fix:x_input_fix[0:1]}
                 result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,
-                                        self.style_loss,  self.style_loss1, self.style_loss2, self.style_loss3,
-                                        self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3, self.d_fvr],feed_dict)
+                                        self.style_loss, self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3, self.d_fvr],feed_dict)
                 print(result)
 
                 if counter in [3e4, 6e5, 12e5, 15e5]:
                     self.sess.run([self.g_lr_update, self.d_lr_update])
 
-                if counter % 100 == 0:
+                if counter % 10 == 0:
                     x_img, x_rec, g_img, g_rec = \
                         self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
                     nrow = 16
@@ -280,7 +270,6 @@ class Trainer(object):
         # self.style_loss2 = style_loss(tf.sigmoid(z_d_real2),tf.sigmoid(z_d_gen20),self.batch_size,1)
         # self.style_loss3 = style_loss(tf.sigmoid(z_d_real3),tf.sigmoid(z_d_gen30),self.batch_size,1)
         # self.style_loss = self.style_loss1*0.3 + self.style_loss2*0.6 + self.style_loss3*2.1  #maybe longer strok
-        self.style_loss1 = self.style_loss2 = self.style_loss3 = tf.Variable(0.)
 
         tmp = ( tf.reduce_mean(G + 1, axis=(1, 2, 3)) - tf.reduce_mean(self.normx + 1, axis=(1, 2, 3)) ) / tf.reduce_mean(self.normx + 1, axis=(1, 2, 3))
         self.d_fvr = tf.reduce_mean(tf.abs(tmp))
@@ -333,137 +322,6 @@ class Trainer(object):
             tf.summary.scalar("misc/pt1", self.pulling_term1),
             tf.summary.scalar("misc/pt2", self.pulling_term2),
             tf.summary.scalar("misc/pt3", self.pulling_term3),
-            tf.summary.scalar("misc/sl1", self.style_loss1),
-            tf.summary.scalar("misc/sl2", self.style_loss2),
-            tf.summary.scalar("misc/sl3", self.style_loss3),
             tf.summary.scalar("misc/style_loss", self.style_loss),
             tf.summary.scalar("misc/d_fvr", self.d_fvr),
         ])
-
-    def build_test_model(self):
-        with tf.variable_scope("test") as vs:
-            # Extra ops for interpolation
-            z_optimizer = tf.train.AdamOptimizer(0.0001)
-
-            self.z_r = tf.get_variable("z_r", [self.batch_size, self.z_num], tf.float32)
-            self.z_r_update = tf.assign(self.z_r, self.z)
-
-        G_z_r, _ = GeneratorCNN(
-                self.z_r, self.conv_hidden_num, self.channel, self.repeat_num, self.data_format, reuse=True)
-
-        with tf.variable_scope("test") as vs:
-            self.z_r_loss = tf.reduce_mean(tf.abs(self.x - G_z_r))
-            self.z_r_optim = z_optimizer.minimize(self.z_r_loss, var_list=[self.z_r])
-
-        test_variables = tf.contrib.framework.get_variables(vs)
-        self.sess.run(tf.variables_initializer(test_variables))
-
-    def generate(self, inputs, root_path=None, path=None, idx=None, save=True):
-        x = self.sess.run(self.G, {self.z: inputs})
-        if path is None and save:
-            path = os.path.join(root_path, '{}_G.png'.format(idx))
-            save_image(x, path)
-            print("[*] Samples saved: {}".format(path))
-        return x
-
-    def autoencode(self, inputs, path, idx=None, x_fake=None):
-        items = {
-            'real': inputs,
-            'fake': x_fake,
-        }
-        for key, img in items.items():
-            if img is None:
-                continue
-            if img.shape[3] in [1, 3]:
-                img = img.transpose([0, 3, 1, 2])
-
-            x_path = os.path.join(path, '{}_D_{}.png'.format(idx, key))
-            x = self.sess.run(self.AE_x, {self.x: img})
-            save_image(x, x_path)
-            print("[*] Samples saved: {}".format(x_path))
-
-    def encode(self, inputs):
-        if inputs.shape[3] in [1, 3]:
-            inputs = inputs.transpose([0, 3, 1, 2])
-        return self.sess.run(self.D_z, {self.x: inputs})
-
-    def decode(self, z):
-        return self.sess.run(self.AE_x, {self.D_z: z})
-
-    def interpolate_G(self, real_batch, step=0, root_path='.', train_epoch=0):
-        batch_size = len(real_batch)
-        half_batch_size = batch_size/2
-
-        self.sess.run(self.z_r_update)
-        tf_real_batch = to_nchw_numpy(real_batch)
-        for i in trange(train_epoch):
-            z_r_loss, _ = self.sess.run([self.z_r_loss, self.z_r_optim], {self.x: tf_real_batch})
-        z = self.sess.run(self.z_r)
-
-        z1, z2 = z[:half_batch_size], z[half_batch_size:]
-        real1_batch, real2_batch = real_batch[:half_batch_size], real_batch[half_batch_size:]
-
-        generated = []
-        for idx, ratio in enumerate(np.linspace(0, 1, 10)):
-            z = np.stack([slerp(ratio, r1, r2) for r1, r2 in zip(z1, z2)])
-            z_decode = self.generate(z, save=False)
-            generated.append(z_decode)
-
-        generated = np.stack(generated).transpose([1, 0, 2, 3, 4])
-        for idx, img in enumerate(generated):
-            save_image(img, os.path.join(root_path, 'test{}_interp_G_{}.png'.format(step, idx)), nrow=10)
-
-        all_img_num = np.prod(generated.shape[:2])
-        batch_generated = np.reshape(generated, [all_img_num] + list(generated.shape[2:]))
-        save_image(batch_generated, os.path.join(root_path, 'test{}_interp_G.png'.format(step)), nrow=10)
-
-    def interpolate_D(self, real1_batch, real2_batch, step=0, root_path="."):
-        real1_encode = self.encode(real1_batch)
-        real2_encode = self.encode(real2_batch)
-
-        decodes = []
-        for idx, ratio in enumerate(np.linspace(0, 1, 10)):
-            z = np.stack([slerp(ratio, r1, r2) for r1, r2 in zip(real1_encode, real2_encode)])
-            z_decode = self.decode(z)
-            decodes.append(z_decode)
-
-        decodes = np.stack(decodes).transpose([1, 0, 2, 3, 4])
-        for idx, img in enumerate(decodes):
-            img = np.concatenate([[real1_batch[idx]], img, [real2_batch[idx]]], 0)
-            save_image(img, os.path.join(root_path, 'test{}_interp_D_{}.png'.format(step, idx)), nrow=10 + 2)
-
-    def test(self):
-        root_path = "./"#self.model_dir
-
-        all_G_z = None
-        for step in range(3):
-            real1_batch = self.get_image_from_loader()
-            real2_batch = self.get_image_from_loader()
-
-            save_image(real1_batch, os.path.join(root_path, 'test{}_real1.png'.format(step)))
-            save_image(real2_batch, os.path.join(root_path, 'test{}_real2.png'.format(step)))
-
-            self.autoencode(
-                    real1_batch, self.model_dir, idx=os.path.join(root_path, "test{}_real1".format(step)))
-            self.autoencode(
-                    real2_batch, self.model_dir, idx=os.path.join(root_path, "test{}_real2".format(step)))
-
-            self.interpolate_G(real1_batch, step, root_path)
-            #self.interpolate_D(real1_batch, real2_batch, step, root_path)
-
-            z_fixed = np.random.uniform(-1, 1, size=(self.batch_size, self.z_num))
-            G_z = self.generate(z_fixed, path=os.path.join(root_path, "test{}_G_z.png".format(step)))
-
-            if all_G_z is None:
-                all_G_z = G_z
-            else:
-                all_G_z = np.concatenate([all_G_z, G_z])
-            save_image(all_G_z, '{}/G_z{}.png'.format(root_path, step))
-
-        save_image(all_G_z, '{}/all_G_z.png'.format(root_path), nrow=16)
-
-    def get_image_from_loader(self):
-        x = self.data_loader.eval(session=self.sess)
-        if self.data_format == 'NCHW':
-            x = x.transpose([0, 2, 3, 1])
-        return x

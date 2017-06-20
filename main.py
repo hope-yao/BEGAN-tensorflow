@@ -25,10 +25,8 @@ def main(config):
         batch_size = config.sample_per_image
         do_shuffle = False
 
-    data_loader = get_loader(
-            data_path, config.batch_size, config.input_scale_size,
-            config.data_format, config.split)
-    trainer = Trainer(config, data_loader)
+
+    trainer = Trainer(config)
 
     if config.is_train:
         save_config(config)
