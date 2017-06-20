@@ -150,9 +150,6 @@ class Trainer(object):
             self.build_test_model()
 
     def train(self):
-        # z_fixed = np.random.uniform(-1, 1, size=(self.batch_size, self.z_num))
-        # x_fixed = self.get_image_from_loader()
-        # save_image(x_fixed, '{}/x_fixed.png'.format(self.model_dir))
 
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
@@ -190,8 +187,9 @@ class Trainer(object):
             return (x_train[0:num], y_train[0:num], z_train[0:num]), (x_test[0:1000], y_test[0:1000], z_test[0:1000])
 
         def Mnist64(datadir, num=200000):
-            aa = np.load('/home/doi5/Documents/Hope/Mnist4k_b.npy')
+            aa = np.load('/home/doi5/Documents/Hope/Mnist4k_b.npy') #range in (-1,1), 1 for digit pixels
             data = aa.item()['data']
+            # data = (data+1)/2
             label = aa.item()['label']
             indices = [1,-2,3,-4,5,-6,7,-8,9,-10,11,-12,13,-14,15,-16]*2#sample(range(l), n1)
 
@@ -209,7 +207,7 @@ class Trainer(object):
         (self.X_train, self.y_train), (self.X_test, self.y_test) = Mnist64(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        z_input_fix = np.random.rand(self.batch_size,self.z_num).astype('float32')# temperary, (-1,1)
+        z_input_fix = np.random.rand(self.batch_size,self.z_num).astype('float32')#  * 2 -1
         feed_dict_fix = {self.x: x_input_fix, self.y: y_input_fix, self.z: z_input_fix}
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
@@ -217,9 +215,9 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                z_input = np.random.rand(self.batch_size, self.z_num).astype('float32')  # temperary
+                z_input = np.random.rand(self.batch_size, self.z_num).astype('float32')# * 2 -1
                 feed_dict = {self.x: x_input,self.y: y_input, self.z: z_input}
-                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.basis_loss, self.zxz_loss],feed_dict)
+                result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t, self.style_loss, self.pulling_term, self.basis_loss, self.zxz_loss, self.pt_gen0, self.pt_gen1, self.pt_gen2, self.pt_gen3],feed_dict)
                 print(result)
 
                 if counter in [5e5, 3e6, 1e7]:
@@ -232,7 +230,7 @@ class Trainer(object):
                     all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec, D0, D1, D2, D3, G0, G1, G2, G3])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
 
-                if counter in [1e2, 1e3, 5e3, 1e4, 2e4, 3e4, 1e5, 2e5]:
+                if counter in [2e2, 2e3, 10e3, 2e4, 4e4, 6e4, 2e5, 4e5]:
                     snapshot_name = "%s_%s" % ('experiment', str(counter))
                     fn = self.saver.save(self.sess, "%s/%s.ckpt" % (self.modeldir, snapshot_name))
                     print("Model saved in file: %s" % fn)
@@ -298,20 +296,32 @@ class Trainer(object):
                 self.y, self.z, self.conv_hidden_num, self.channel,
                 self.repeat_num, self.data_format, reuse=False)
 
-        d_out, self.D_z, self.D_var, D0, D1 , D2, D3 = DiscriminatorCNN( self.y,
-                tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
+        d_out, self.D_z, self.D_var, D0, D1, D2, D3 = DiscriminatorCNN( self.y,
+                tf.concat([G, x, G0, G1, G2, G3], 0), self.channel, self.z_num, self.repeat_num,
                 self.conv_hidden_num, self.data_format)
 
-        z_d_gen, z_d_real = tf.split(self.D_z, 2)
-        nom = tf.matmul(z_d_gen, tf.transpose(z_d_gen, perm=[1, 0]))
-        denom = tf.sqrt(tf.reduce_sum(tf.square(z_d_gen), reduction_indices=[1], keep_dims=True))
-        pt = tf.square(tf.transpose((nom / denom), (1, 0)) / denom)
-        pt = pt - tf.diag(tf.diag_part(pt))
-        self.pulling_term = tf.reduce_sum(pt) / (self.batch_size * (self.batch_size - 1))
+        z_d_gen, z_d_real, z_d_gen0, z_d_gen1, z_d_gen2, z_d_gen3 = tf.split(self.D_z, 6)
+        D0, _, _ = tf.split(D0, 3)
+        D1, _, _ = tf.split(D1, 3)
+        D2, _, _ = tf.split(D2, 3)
+        D3, _, _ = tf.split(D3, 3)
+
+        def calc_pt(z_d_gen, batch_size):
+            nom = tf.matmul(z_d_gen, tf.transpose(z_d_gen, perm=[1, 0]))
+            denom = tf.sqrt(tf.reduce_sum(tf.square(z_d_gen), reduction_indices=[1], keep_dims=True))
+            pt = tf.abs(tf.transpose((nom / denom), (1, 0)) / denom)
+            pt = pt - tf.diag(tf.diag_part(pt))
+            pulling_term = tf.reduce_sum(pt) / (batch_size * (batch_size - 1))
+            return pulling_term
+        self.pt_gen0 =  calc_pt(z_d_gen0, batch_size=self.batch_size)
+        self.pt_gen1 =  calc_pt(z_d_gen1, batch_size=self.batch_size)
+        self.pt_gen2 =  calc_pt(z_d_gen2, batch_size=self.batch_size)
+        self.pt_gen3 =  calc_pt(z_d_gen3, batch_size=self.batch_size)
+        self.pulling_term =  calc_pt(z_d_gen, batch_size=self.batch_size)
 
         self.zxz_loss = tf.reduce_mean(tf.abs(self.z - z_d_gen))
 
-        AE_G, AE_x = tf.split(d_out, 2)
+        AE_G, AE_x, _, _, _, _ = tf.split(d_out, 2 +4)
         self.G0 = denorm_img(G0, self.data_format)
         self.G1 = denorm_img(G1, self.data_format)
         self.G2 = denorm_img(G2, self.data_format)
@@ -340,7 +350,7 @@ class Trainer(object):
         self.style_loss = tf.Variable(0.)
         self.basis_loss = tf.reduce_sum(tf.sigmoid(G0)*tf.sigmoid(G1))
         # self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss + self.pulling_term + self.g_loss_reg
-        self.g_loss = self.d_loss_fake + self.zxz_loss
+        self.g_loss = self.d_loss_fake + self.zxz_loss + self.pulling_term
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
@@ -368,6 +378,10 @@ class Trainer(object):
             tf.summary.scalar("misc/g_lr", self.g_lr),
             tf.summary.scalar("misc/balance", self.balance),
             tf.summary.scalar("misc/pulling_term", self.pulling_term),
+            tf.summary.scalar("misc/pt_gen0", self.pt_gen0),
+            tf.summary.scalar("misc/pt_gen1", self.pt_gen1),
+            tf.summary.scalar("misc/pt_gen2", self.pt_gen2),
+            tf.summary.scalar("misc/pt_gen3", self.pt_gen3),
             tf.summary.scalar("misc/basis_loss", self.basis_loss),
             tf.summary.scalar("misc/zxz_loss", self.zxz_loss),
         ])

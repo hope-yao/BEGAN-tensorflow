@@ -119,7 +119,7 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
             x0 = slim.conv2d(x0, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x0 = upscale(x0, 2, data_format)
-        out0 = slim.conv2d(x0, output_num, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out0 = slim.conv2d(x0, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
         # Decoder1
         x1 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -129,7 +129,7 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
             x1 = slim.conv2d(x1, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x1 = upscale(x1, 2, data_format)
-        out1 = slim.conv2d(x1, output_num, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out1 = slim.conv2d(x1, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
 
         # Decoder2
@@ -140,7 +140,7 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
             x2 = slim.conv2d(x2, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x2 = upscale(x2, 2, data_format)
-        out2 = slim.conv2d(x2, output_num, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out2 = slim.conv2d(x2, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
         # Decoder3
         x3 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -150,7 +150,7 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format, reu
             x3 = slim.conv2d(x3, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x3 = upscale(x3, 2, data_format)
-        out3 = slim.conv2d(x3, output_num, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out3 = slim.conv2d(x3, output_num, 3, 1, activation_fn=None, data_format=data_format)
 
         dup = 1
         y0 = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, 0], 1), 1), 1), [dup, 1, 64, 64])
@@ -222,7 +222,7 @@ def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, da
 
         # dup = 14
         # x = tf.concat([x,tf.tile(y_data,[dup,1])],1)
-        dup = 2
+        dup = 2 +4
         # Decoder0
         z = x
         x0 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -232,7 +232,7 @@ def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, da
             x0 = slim.conv2d(x0, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x0 = upscale(x0, 2, data_format)
-        out0 = slim.conv2d(x0, input_channel, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out0 = slim.conv2d(x0, input_channel, 3, 1, activation_fn=None, data_format=data_format)
 
         # Decoder1
         x1 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -243,7 +243,7 @@ def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, da
             x1 = slim.conv2d(x1, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x1 = upscale(x1, 2, data_format)
-        out1 = slim.conv2d(x1, input_channel, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out1 = slim.conv2d(x1, input_channel, 3, 1, activation_fn=None, data_format=data_format)
 
         # Decoder2
         x2 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -254,7 +254,7 @@ def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, da
             x2 = slim.conv2d(x2, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x2 = upscale(x2, 2, data_format)
-        out2 = slim.conv2d(x2, input_channel, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out2 = slim.conv2d(x2, input_channel, 3, 1, activation_fn=None, data_format=data_format)
 
         # Decoder3
         x3 = slim.fully_connected(z, np.prod([8, 8, hidden_num]), activation_fn=None)
@@ -265,7 +265,7 @@ def DiscriminatorCNN(y_data, x, input_channel, z_num, repeat_num, hidden_num, da
             x3 = slim.conv2d(x3, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x3 = upscale(x3, 2, data_format)
-        out3 = slim.conv2d(x3, input_channel, 3, 1, activation_fn=tf.tanh, data_format=data_format)
+        out3 = slim.conv2d(x3, input_channel, 3, 1, activation_fn=None, data_format=data_format)
 
         y0 = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, 0], 1), 1), 1), [dup, 1, 64, 64])
         y1 = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, 1], 1), 1), 1), [dup, 1, 64, 64])
