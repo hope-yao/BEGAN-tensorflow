@@ -243,44 +243,6 @@ class Trainer(object):
                 if counter in [2e3, 5e3, 8e3, 11e3, 14e3]:
                     self.sess.run([self.g_lr_update, self.d_lr_update])
 
-                    # for step in trange(self.start_step, self.max_step):
-        #     fetch_dict = {
-        #         "k_update": self.k_update,
-        #         "measure": self.measure,
-        #     }
-        #     if step % self.log_step == 0:
-        #         fetch_dict.update({
-        #             "summary": self.summary_op,
-        #             "g_loss": self.g_loss,
-        #             "d_loss": self.d_loss,
-        #             "k_t": self.k_t,
-        #         })
-        #     result = self.sess.run(fetch_dict)
-        #
-        #     measure = result['measure']
-        #     measure_history.append(measure)
-        #
-        #     if step % self.log_step == 0:
-        #         self.summary_writer.add_summary(result['summary'], step)
-        #         self.summary_writer.flush()
-        #
-        #         g_loss = result['g_loss']
-        #         d_loss = result['d_loss']
-        #         k_t = result['k_t']
-        #
-        #         print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
-        #               format(step, self.max_step, d_loss, g_loss, measure, k_t))
-        #
-        #     if step % (self.log_step * 10) == 0:
-        #         x_fake = self.generate(z_fixed, self.model_dir, idx=step)
-        #         self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
-        #
-        #     if step % self.lr_update_step == self.lr_update_step - 1:
-        #         self.sess.run([self.g_lr_update, self.d_lr_update])
-        #         #cur_measure = np.mean(measure_history)
-        #         #if cur_measure > prev_measure * 0.99:
-        #         #prev_measure = cur_measure
-
     def build_model(self):
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, 64, 64])
         x = norm_img(self.x)
@@ -350,7 +312,7 @@ class Trainer(object):
         self.style_loss = tf.Variable(0.)
         self.basis_loss = tf.reduce_sum(tf.sigmoid(G0)*tf.sigmoid(G1))
         # self.g_loss = tf.reduce_mean(tf.abs(AE_G - G)) + self.style_loss + self.pulling_term + self.g_loss_reg
-        self.g_loss = self.d_loss_fake + self.zxz_loss + self.pulling_term
+        self.g_loss = self.d_loss_fake + self.zxz_loss + 0.1*(self.pt_gen0+self.pt_gen1+self.pt_gen2+self.pt_gen3)
 
         d_optim = d_optimizer.minimize(self.d_loss, var_list=self.D_var)
         g_optim = g_optimizer.minimize(self.g_loss, global_step=self.step, var_list=self.G_var)
