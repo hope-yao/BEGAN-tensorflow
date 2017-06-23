@@ -128,7 +128,7 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
 
         encoded = Flatten()(encoded)
         encoded = Dense(8 * 128)(encoded)
-        z = encoded = Dense(128)(encoded)
+        z = encoded = Dense(z_num)(encoded)
         encoded = Dense(8 * 128)(encoded)
         encoded = Dense(13 * 13 * 128)(encoded)
         encoded = Reshape((13, 13, 128))(encoded)

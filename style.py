@@ -245,7 +245,7 @@ def total_style_cost(combination_image, style_image, z1, z2, bs):
     sl2 = style_loss(conv_out4_S, conv_out4, bs, weight)
     sl3 = style_loss(conv_out7_S, conv_out7, bs, weight)
     sl4 = style_loss(conv_out10_S, conv_out10, bs, weight)
-    sl = 0.5*sl1 + 0.5*sl2 + 1.0*sl3 + 2.0*sl4
+    sl = 0.2*sl1 + 0.4*sl2 + 0.9*sl3 + 2.5*sl4
 
     return sl
     # return 1/(3-tf.log(sl))

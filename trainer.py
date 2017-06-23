@@ -45,7 +45,7 @@ def slerp(val, low, high):
 
 def  material104():
     import scipy.io as sio
-    WB = sio.loadmat('/home/hope-yao/Documents/Data/material/WB_sm.mat')['WB_sm'][0:128]
+    WB = sio.loadmat('/home/hope-yao/Documents/Data/material/WB_sm.mat')['WB_sm']#[0:128]
     x_train = WB.astype('float32') * 255.
     x_train = np.reshape(x_train, (x_train.shape[0], 100, 100, 1))  # adapt this if using `channels_first` image data format
     X_train = np.ones((x_train.shape[0], 104, 104, 1))
@@ -81,6 +81,26 @@ def CelebA(datadir, num=200000):
 
 import dateutil.tz
 import datetime
+
+
+def sample_simplex(y):
+    '''sample inside the simple spanned by matrix y's row vectors'''
+    from numpy.random import rand
+    sample = []
+    bs = y.shape[0]
+    dim = bs - 1
+    for i in range(bs):
+        beta = rand(1,dim)
+        beta = beta / np.sum(beta)   # evenly sample ON the simplex. all ranges from 0 to 1 and sum up to 1
+
+        alpha = 0.6 # how away from the corner
+        d = alpha * rand(1) # making sample INSIDE the simplex. this implementation is slightly concentrating to the edge
+        # d = 1 # sample ON the simplex
+        beta = beta * d
+
+        sample_i = np.dot(np.insert(beta, i, 1.-alpha, axis=1),y) #used i here for some unknown reason....
+        sample += [sample_i[0]]
+    return np.asarray(sample)
 
 
 def calc_pt(z_d_gen, batch_size):
@@ -177,7 +197,20 @@ class Trainer(object):
         self.sess = sv.prepare_or_wait_for_session(config=sess_config)
 
         # self.sess = tf.Session()
-        # self.saver.restore(self.sess, "./models/GAN/GAN_2017_06_02_11_45_40/experiment_22024.ckpt")
+        # self.saver.restore(self.sess, "./models/GAN/GAN_2017_06_23_14_09_45/model.ckpt-7649")
+
+        # (self.X_train, self.y_train), (self.X_test, self.y_test) = material104()
+        # x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
+        # y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
+        # feed_dict_fix = {self.x: x_input_fix,
+        #                  self.z: np.asarray([[(15 - i) / 15., 0, 0, i / 15.] + [0] * 996 for i in range(16)]),
+        #                  self.x_fix: x_input_fix[0:1]}
+        #
+        # x_img, x_rec, g_img, g_rec = \
+        #     self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
+        # nrow = self.batch_size
+        # all_G_z = np.concatenate([x_input_fix.transpose((0, 2, 3, 1)), x_rec, g_img, g_rec])
+        # save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, 0), nrow=nrow)
 
         if not self.is_train:
             # dirty way to bypass graph finilization error
@@ -204,7 +237,7 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input, self.z: y_input, self.x_fix:x_input_fix[0:1]}
+                feed_dict = {self.x: x_input, self.z: sample_simplex(y_input), self.x_fix:x_input_fix[0:1]}
                 result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,
                                         self.style_loss, self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3, self.d_fvr],feed_dict)
                 print(result)
@@ -215,7 +248,7 @@ class Trainer(object):
                 if counter % 10 == 0:
                     x_img, x_rec, g_img, g_rec = \
                         self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
-                    nrow = 16
+                    nrow = self.batch_size
                     all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
 
