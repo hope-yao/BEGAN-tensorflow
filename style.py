@@ -250,24 +250,123 @@ def total_style_cost(combination_image, style_image, z1, z2, bs):
     return sl
     # return 1/(3-tf.log(sl))
 
-import numpy as np
 
-ii = range(3, 32, 2)
-ww = []
-for i in ii:
-    ww += [tf.Variable(np.ones((i, i, 1, 1),dtype='float32'))]
-def white_style(input):
-    result = tf.Variable(0.)
-    count = 0
-    for w in ww:
-        x = input
-        x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
-        x = tf.clip_by_value(x, 0, 1)
-        # result_ch = tf.sigmoid((tf.reduce_mean(x,axis=(1,2,3)) * (3+count*2))) -0.5
-        # result +=tf.reduce_mean(tf.clip_by_value(-result_ch,-1,1))
-        result_ch = tf.sigmoid((tf.reduce_mean(x, axis=(1, 2, 3)) * (3 + count * 2)))
-        result += tf.reduce_sum(1-result_ch)
-        count += 1
-    return result
+def gram_embedding():
+    from trainer import material104
+    (X_train, _), (X_test, _) = material104()
+    # from style import load_vgg, true_activation, gram_matrix
+    W_vgg, b_vgg = load_vgg('/home/hope-yao/Documents/Data/VGG/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5')
+    gram = []
+    import numpy as np
+    x = np.asarray(X_train, 'float32')
+    style_conv_out = true_activation(tf.transpose(tf.concat([x, x, x], 1), (0, 2, 3, 1)), W_vgg,b_vgg)
+    [conv_out1_S, conv_out2_S, conv_out3_S, conv_out4_S, conv_out5_S, conv_out6_S, conv_out7_S, conv_out8_S,
+     conv_out9_S,conv_out10_S, conv_out11_S, conv_out12_S, conv_out13_S] = style_conv_out
+    with tf.Session() as sess:
+        for i, x in enumerate(np.asarray(X_train, 'float32')):
+            gram += [gram_matrix(conv_out7_S[i]).eval()]
+    np.save('gram',np.asarray(gram,'float32'))
+    return gram
 
+def style_loss_from_gram(gram_c, gram_s, z_c, z_s, bs=16, l=512):
+    # def style_loss(style, combination, bs, weight):
+    mb_size = bs
+    width = height = l
+    loss_temp = 0.
+    channels = 3
+    size = height * width
+    dd = tf.tile(tf.expand_dims(z_c, 1), [1, bs, 1]) - tf.tile(tf.expand_dims(z_s, 0), [bs, 1, 1])
+    weight = tf.sqrt(tf.reduce_sum(tf.square(dd), 2))  # dist[i,j] = z1[i]-z2[j]
+
+    for i in range(mb_size):
+        C = gram_c[i]
+        S = gram_s[i]
+        # loss_temp = tf.add(loss_temp,
+        #                    backend.sum(backend.square(S - C)) / (4. * (channels ** 2) * (size ** 2))) * 1e-1
+        for i in range(mb_size):
+            for j in range(mb_size):
+                loss_temp = tf.add(loss_temp, backend.sum(backend.square(S[j] - C[i])) / (4. * (channels ** 2) * (size ** 2) * weight[i,j] ))
+    return loss_temp
+
+if __name__ == "__main__":
+
+    import numpy as np
+    from models import gram_enc, gram_dec
+    from tqdm import tqdm
+    from utils import save_image
+    gram = np.load('gram_l7.npy')#gram_embedding()
+    gram = np.expand_dims(gram,1) #gram_embedding()
+    bs = 16
+    gram_dim = 128
+    x_in = tf.placeholder(tf.float32, [bs, 1, 256, 256]) #(0,inf)
+    norm_x_in = tf.tanh(x_in) #(0,1)
+    z, var_enc = gram_enc(norm_x_in, gram_dim)
+    x_rec, z, z1, z2, z3, z4, var_dec = gram_dec(z)
+    norm_x_rec = tf.sigmoid(x_rec)
+    # gram_loss = tf.nn.softmax_cross_entropy_with_logits(labels=tf.reshape(norm_x_in,[-1]), logits=tf.reshape(x_rec,[-1]))
+    gram_loss = tf.reduce_mean(tf.square(norm_x_in - norm_x_rec))
+    gram_er = tf.reduce_mean(tf.abs(norm_x_in - norm_x_rec))
+    lr = tf.Variable(0.5e-4, name='g_lr')
+    lr_update = tf.assign(lr, lr * 0.5, name='lr_update')
+    gram_optim = tf.train.AdamOptimizer(lr).minimize(gram_loss)
+    summary_writer = tf.summary.FileWriter('./gram_ae')
+    summary_op = tf.summary.merge([
+        tf.summary.scalar("gram_loss", gram_loss),
+        tf.summary.scalar("gram_er", gram_er)
+        ])
+
+    counter = 0
+    with tf.Session() as sess:
+        init = tf.global_variables_initializer()
+        sess.run(init)
+        for epoch in range(5000):
+            it_per_ep = len(gram) / bs
+            for i in tqdm(range(it_per_ep)):
+                counter += 1
+                x_i =  gram[i*bs:(i + 1)*bs]
+                feed_dict = {x_in:x_i}
+                result = sess.run([gram_optim,gram_er,norm_x_in,norm_x_rec], feed_dict)
+                print('itr:%s    er:%s'%(counter,result[1]))
+                if result[1]=='nan':
+                    print('err')
+                if counter in [5e2, 1e3, 2e3, 3e3, 4e3, 50e3]:
+                    sess.run(lr_update)
+                if counter % 10 == 0:
+                    summary = sess.run(summary_op, feed_dict)
+                    summary_writer.add_summary(summary, counter)
+                    summary_writer.flush()
+                # if counter % 10 == 0:
+                #     all_G_z = np.concatenate([result[2].transpose((0,2,3,1)), result[3].transpose((0,2,3,1))])
+                #     save_image(all_G_z, '{}/itr{}.png'.format('./gram_ae', counter), nrow=bs)
+                #
+                # import matplotlib.pyplot as plt
+                # plt.figure()
+                # plt.imshow(result[3][0, 0])
+                # plt.show()
+
+    z_s = gram_enc(x_in)
+    z_c = np.random.rand(bs,gram_dim)
+    gram_c = gram_dec(z_c)
+    gram_s = gram[0:bs]
+    style_loss_from_gram(gram_c, gram_s, z_c, z_s, bs=16, l=512)
+
+# import numpy as np
+# ii = range(3, 32, 2)
+# ww = []
+# for i in ii:
+#     ww += [tf.Variable(np.ones((i, i, 1, 1),dtype='float32'))]
+# def white_style(input):
+#     result = tf.Variable(0.)
+#     count = 0
+#     for w in ww:
+#         x = input
+#         x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
+#         x = tf.clip_by_value(x, 0, 1)
+#         # result_ch = tf.sigmoid((tf.reduce_mean(x,axis=(1,2,3)) * (3+count*2))) -0.5
+#         # result +=tf.reduce_mean(tf.clip_by_value(-result_ch,-1,1))
+#         result_ch = tf.sigmoid((tf.reduce_mean(x, axis=(1, 2, 3)) * (3 + count * 2)))
+#         result += tf.reduce_sum(1-result_ch)
+#         count += 1
+#     return result
+#
 

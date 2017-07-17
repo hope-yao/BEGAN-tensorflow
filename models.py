@@ -147,3 +147,57 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
         variables = tf.contrib.framework.get_variables(vs)
         return tf.transpose(decoded,(0,3,1,2)), z, z1, z2, z3, variables
 
+
+
+
+def gram_enc(x, gram_dim=128):
+    with tf.variable_scope("gram_embedding") as vs:
+        input_img = tf.transpose(x,(0,2,3,1))
+
+        from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D, Flatten, Reshape
+
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(input_img)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(24, (3, 3), activation='relu', padding='same')(x)
+        x = Conv2D(24, (3, 3), activation='relu', padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        encoded = MaxPooling2D((2, 2), padding='same')(x)
+
+        encoded = Flatten()(encoded)
+        encoded = Dense(2048)(encoded)
+        z = encoded = Dense(gram_dim)(encoded)
+        variables = tf.contrib.framework.get_variables(vs)
+
+        return z, variables
+
+def gram_dec(z):
+    with tf.variable_scope("gram_gen") as vs:
+        from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D, Flatten, Reshape
+
+        encoded = Dense(2048)(z)
+        encoded = Dense(16 * 16* 32)(encoded)
+        encoded = Reshape((16, 16, 32))(encoded)
+
+        x = Conv2D(32, (3, 3), activation='relu', padding='same')(encoded)  #z1
+        z1 = x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(24, (3, 3), activation='relu', padding='same')(x)     #z2
+        z2 = x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+        z3 = x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+        z4 = x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        decoded = Conv2D(1, (3, 3), activation=None, padding='same')(x)
+
+        variables = tf.contrib.framework.get_variables(vs)
+        return tf.transpose(decoded,(0,3,1,2)), z, z1, z2, z3, z4, variables
+

@@ -48,7 +48,7 @@ def  material104():
     WB = sio.loadmat('/home/hope-yao/Documents/Data/material/WB_sm.mat')['WB_sm']#[0:128]
     x_train = WB.astype('float32') * 255.
     x_train = np.reshape(x_train, (x_train.shape[0], 100, 100, 1))  # adapt this if using `channels_first` image data format
-    X_train = np.ones((x_train.shape[0], 104, 104, 1))
+    X_train = np.ones((x_train.shape[0], 104, 104, 1)) * 255
     X_train[:, 2:102, 2:102, :] = x_train
     X_train = np.transpose(X_train, (0, 3, 1, 2))
     y_train = np.eye(WB.shape[0])
@@ -219,6 +219,8 @@ class Trainer(object):
 
             self.build_test_model()
 
+
+
     def train(self):
 
         prev_measure = 1
@@ -226,7 +228,9 @@ class Trainer(object):
 
         counter = 0
         from tqdm import tqdm
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = material104()
+        (self.X_train, _), (self.X_test, _) = material104()
+        self.y_train = self.y_test = np.load('gram_l10.npy')
+
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         feed_dict_fix = {self.x: x_input_fix, self.z: y_input_fix, self.x_fix:x_input_fix[0:1]}
@@ -237,7 +241,7 @@ class Trainer(object):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input, self.z: sample_simplex(y_input), self.x_fix:x_input_fix[0:1]}
+                feed_dict = {self.x: x_input, self.z: random(), self.x_fix:x_input_fix[0:1]}
                 result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t,
                                         self.style_loss, self.pulling_term, self.pulling_term1, self.pulling_term2, self.pulling_term3, self.d_fvr],feed_dict)
                 print(result)
@@ -296,8 +300,16 @@ class Trainer(object):
         z_d_gen3, z_d_real3, z_d_gen30 = tf.split(self.D_z3, 3)
         self.pulling_term3 =  calc_pt(Flatten()(z_d_gen3), batch_size=self.batch_size)
 
-        from style import style_loss, total_style_cost
-        self.style_loss =  0.5e-13*total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([fix_img,fix_img,fix_img],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
+        from style import style_loss, total_style_cost, style_loss_from_gram
+        z_s = gram_enc(self.normx)
+        gram_dim = 16
+        z_c = np.random.rand(self.batch_size, gram_dim)
+        gram_c = gram_dec(z_c)
+        gram_s = gram_enc(self.gram)
+        style_loss_from_gram(gram_c, gram_s, z_c, z_s, bs=16, l=512)
+
+        # self.style_loss =  0.5e-13*total_style_cost(tf.transpose(tf.concat([G,G,G],1),(0,2,3,1)),tf.transpose(tf.concat([fix_img,fix_img,fix_img],1),(0,2,3,1)), z_d_gen, self.z, self.batch_size)
+
         # self.style_loss = tf.Variable(0.)
         # self.style_loss1 = style_loss(tf.sigmoid(z_d_real1),tf.sigmoid(z_d_gen10),self.batch_size,1)
         # self.style_loss2 = style_loss(tf.sigmoid(z_d_real2),tf.sigmoid(z_d_gen20),self.batch_size,1)
