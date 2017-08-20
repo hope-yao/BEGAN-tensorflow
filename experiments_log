@@ -1,0 +1,228 @@
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_11_56_14
+self.g_loss = self.d_loss_fake + self.zxz_loss + self.pt_z + self.pt_x
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_12_14_03
+self.g_loss = self.d_loss_fake + self.zxz_loss + 10*self.pt_z + self.pt_x
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_13_08_15
+self.g_loss = self.d_loss_fake + self.zxz_loss + self.pt_z
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_16_26_34
+self.g_loss = self.d_loss_fake + self.pt_z
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_11_56_14
+self.g_loss = self.d_loss_fake + self.zxz_loss + self.pt_z + self.pt_x
+3xlr
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_22_18_18
+self.g_loss = self.d_loss_fake + self.zxz_loss + self.pt_z + self.pt_x
+3xlr
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_09_22_58_12
+self.g_loss = self.d_loss_fake + self.zxz_loss + self.pt_z + 0.01*self.pt_x
+3xlr
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_10_08_10_45
+self.g_loss = self.d_loss_fake + self.zxz_loss 
+3xlr
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_10_08_18_17
+self.g_loss = self.d_loss_fake + self.zxz_loss 
+1xlr
+
+
+
+
+GAN/GAN_2017_07_10_10_18_55
+self.g_loss = self.d_loss_fake + self.zxz_loss 
+1xlr, Sigmoid
+
+GAN/GAN_2017_07_10_10_23_42
+self.g_loss = self.d_loss_fake + self.zxz_loss 
+1/3xlr, Sigmoid
+
+GAN/GAN_2017_07_10_10_27_29
+self.g_loss = self.d_loss_fake + self.zxz_loss 
+1/10xlr, Sigmoid
+
+
+
+
+
+GAN/GAN_2017_07_10_11_18_34
+self.g_loss = self.d_loss_fake + self.zxz_loss 
+1xlr, None-activation
+observation: g_i disappear after 100k iteration
+
+GAN/GAN_2017_07_10_12_34_47
+self.g_loss = self.d_loss_fake + 10*self.zxz_loss 
+1xlr, None-activation
+observation: g_i disapper earlier
+
+GAN/GAN_2017_07_10_13_30_20
+self.g_loss = self.d_loss_fake + 10*self.zxz_loss 
+1xlr, None-activation, different z for G_i
+observation: g_i become non-sense very soon 
+
+GAN/GAN_2017_07_10_13_56_42
+self.g_loss = self.d_loss_fake + 10*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_09_36_12
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.4
+observation: some g_i become black after 20k, all black around 40k
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_09_37_06
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.4, lambda_1=3e-2
+observation: some g_i become black after 15k, all black around 25k
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_09_37_57
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.4, lambda_1=3e-3
+***observation: converging slow, but very good generation around 40k with strange G_D. Then g_0 turns black
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_09_38_38
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.6
+observation: similar to first expriement of this set. might be slightly worse?
+
+
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_15_47_05
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.4, lambda_1=1e-3
+observation: one g_i missing, but good overall generation most of the time
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_15_48_00
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.4, lambda_1=3e-4
+***observation: good most of the time, while one subnetwork tend to shrink
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_11_15_48_35
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.3, lambda_1=3e-3
+observation: not good
+
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_11_17_40_25
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+gamma=0.4, lambda_1=3e-4
+***observation: different from GAN_2017_07_11_15_48_35, which is strange
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_11_23_03_30
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+3xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=3e-4
+observation: 
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_11_23_05_05
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=3e-4
+observation: no meaningful g_i 
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_11_23_06_08
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1/3xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=3e-4, z_num = 128
+***observation:  current best. g_i can recover both basis at 190k, only cross basis is recovered at 200k
+
+
+
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_12_09_11_25
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1/3xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=3e-4, z_num = 4
+observation: plausible results around 15k, not good overall
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_12_09_12_26
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1/3xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=3e-4, z_num = 16
+***observation: strangely that decoder can do a VERY GOOD job in decomposition
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0-crs/logs/GAN/GAN_2017_07_12_09_13_48
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+1/3xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=3e-4, z_num = 32
+observation: no good result.
+
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_12_16_40_57
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+self.zxz_loss = tf.reduce_mean(tf.abs(self.z * mask - z_d_gen))
+1xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=1e-3, z_num = 32
+******observation: used to generate result sent to Max
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_13_14_19_31
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss 
+self.zxz_loss = tf.reduce_mean(tf.abs(self.z - z_d_gen) * mask)
+1xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=1e-3, z_num = 32
+observation: 
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_13_14_30_06
+self.g_loss = self.d_loss_fake + 10*self.zxz_loss 
+self.zxz_loss = tf.reduce_mean(tf.abs(self.z - z_d_gen) * mask)
+1xlr, None-activation, different z for G_i and D_i
+CRS, gamma=0.4, lambda_1=1e-3, z_num = 32
+observation: 
+
+
+
+
+
+
+
+
+
+
+/home/exx/Documents/Hope/BEGAN-tensorflow-regressor-20170621-0/logs/GAN/GAN_2017_07_12_13_48_48
+self.g_loss = self.d_loss_fake + 3*self.zxz_loss + 0.1*self.zdg_loss
+1/3xlr, None-activation, different z for G_i and D_i
+MNIST64, gamma=0.3, lambda_1=3e-4, z_num = 32
+put a penaly on g_i!=0
+
+
+put a penaly on g_i(0)=0 and enc(0)=0
+
+
+
+
+
+
+
+
+
