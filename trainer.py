@@ -130,7 +130,7 @@ class Trainer(object):
         self.sess = tf.Session(config=tfconfig)
         init = tf.global_variables_initializer()
         self.sess.run(init)
-        self.saver.restore(self.sess, "./models/GAN/GAN_2017_07_30_15_13_16/experiment_385977.ckpt")
+        self.saver.restore(self.sess, "./models/GAN/GAN_2017_08_12_23_30_24/experiment_102438.ckpt")
 
     def train(self):
 
@@ -206,18 +206,17 @@ class Trainer(object):
                 with tf.device('/gpu:%d' % i):
                     with tf.variable_scope('G') as vs_g:
                         self.G_norm, self.G_sub_norm = GeneratorCNN(
-                            self.y, self.z*self.mask, self.conv_hidden_num, self.channel,
+                            self.y, self.z, self.conv_hidden_num, self.channel,
                             self.repeat_num, self.data_format)
                         self.G_var = tf.contrib.framework.get_variables(vs_g)
 
                     with tf.variable_scope('D') as vs_d:
                         self.all_x = tf.concat([self.G_norm, x], 0)
-                        self.d_z, self.x_mid = Encoder_mid(self.all_x, self.z_num, self.repeat_num,
+                        self.d_z = Encoder(self.all_x, self.z_num, self.repeat_num,
                                            self.conv_hidden_num, self.data_format)
                         L = 1
                         # self.d_zg, z_mean, z_log_var = my_sampling(self.d_z, n_net, L)
-                        self.d_out, self.D_sub_norm, self.partd_out = Decoder_mid(self.d_z*tf.tile(self.mask,[2,1]),
-                                                                              self.x_mid, n_net, self.channel, self.z_num,
+                        self.d_out, self.D_sub_norm = Decoder(self.y, self.d_z, self.channel, self.z_num,
                                                                               self.repeat_num,self.conv_hidden_num, self.data_format)
                         self.D_var = tf.contrib.framework.get_variables(vs_d)
                     tf.get_variable_scope().reuse_variables()
@@ -238,18 +237,18 @@ class Trainer(object):
                     self.d_loss_real = 80  * tf.reduce_mean(tf.square(list2tensor(self.AE_x_norm) - tf.tile(self.x_norm,[L,1,1,1])))
                     self.d_loss_fake = 80 * tf.reduce_mean(tf.square(list2tensor(self.AE_G_norm) - tf.tile(self.G_norm,[L,1,1,1])))
 
-                    self.part_AE_G_norm = []
-                    self.part_AE_x_norm = []
-                    for i, part_d_out_l in enumerate(tf.split(self.partd_out, L)):
-                        part_AE_G_norm_i, part_AE_x_norm_i = tf.split(part_d_out_l, 2)
-                        self.part_AE_G_norm += [part_AE_G_norm_i]
-                        self.part_AE_x_norm += [part_AE_x_norm_i]
-                    self.part_d_loss_real = 80  * tf.reduce_mean(tf.square(list2tensor(self.part_AE_x_norm) - tf.tile(self.x_norm,[L,1,1,1])))
-                    self.part_d_loss_fake = 80 * tf.reduce_mean(tf.square(list2tensor(self.part_AE_G_norm) - tf.tile(self.G_norm,[L,1,1,1])))
+                    # self.part_AE_G_norm = []
+                    # self.part_AE_x_norm = []
+                    # for i, part_d_out_l in enumerate(tf.split(self.partd_out, L)):
+                    #     part_AE_G_norm_i, part_AE_x_norm_i = tf.split(part_d_out_l, 2)
+                    #     self.part_AE_G_norm += [part_AE_G_norm_i]
+                    #     self.part_AE_x_norm += [part_AE_x_norm_i]
+                    # self.part_d_loss_real = 80  * tf.reduce_mean(tf.square(list2tensor(self.part_AE_x_norm) - tf.tile(self.x_norm,[L,1,1,1])))
+                    # self.part_d_loss_fake = 80 * tf.reduce_mean(tf.square(list2tensor(self.part_AE_G_norm) - tf.tile(self.G_norm,[L,1,1,1])))
 
-                    alpha = 0.4
-                    self.mixed_d_loss_real = (1-alpha)*self.d_loss_real + alpha*self.part_d_loss_real
-                    self.mixed_d_loss_fake = (1-alpha)*self.d_loss_fake + alpha*self.part_d_loss_fake
+                    # alpha = 0.4
+                    # self.mixed_d_loss_real = (1-alpha)*self.d_loss_real + alpha*self.part_d_loss_real
+                    # self.mixed_d_loss_fake = (1-alpha)*self.d_loss_fake + alpha*self.part_d_loss_fake
 
                     self.dgall = tf.zeros((self.batch_size, 1, self.imsize, self.imsize))
                     self.gall = tf.zeros((self.batch_size, 1, self.imsize, self.imsize))
@@ -263,7 +262,7 @@ class Trainer(object):
                     self.r_dis = self.klr_mean + self.mr
                     self.f_dis = self.klf_mean + self.mf
                     self.g_loss = self.d_loss_fake + self.f_dis + self.all_g_loss#+ self.pt_z
-                    self.d_loss = self.mixed_d_loss_real - self.k_t * self.g_loss + self.r_dis
+                    self.d_loss = self.d_loss_real - self.k_t * self.g_loss + self.r_dis
                     # self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake + self.r_dis + self.f_dis #+ (1-self.pt_z)
                     grads_g = g_optimizer.compute_gradients(self.g_loss, var_list=self.G_var)
                     tower_grads_g.append(grads_g)
@@ -293,8 +292,6 @@ class Trainer(object):
             tf.summary.scalar("loss/d_loss", self.d_loss),
             tf.summary.scalar("loss/d_loss_real", self.d_loss_real),
             tf.summary.scalar("loss/d_loss_fake", self.d_loss_fake),
-            tf.summary.scalar("loss/part_d_loss_real", self.part_d_loss_real),
-            tf.summary.scalar("loss/part_d_loss_fake", self.part_d_loss_fake),
             tf.summary.scalar("loss/g_loss", self.g_loss),
 
             tf.summary.scalar("misc/measure", self.measure),

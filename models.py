@@ -20,7 +20,8 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format):
             if idx < repeat_num - 1:
                 x_i = upscale(x_i, 2, data_format)
         out_i = slim.conv2d(x_i, output_num, 3, 1, activation_fn=None, data_format=data_format)
-        out += out_i
+        y_i = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, net_i], 1), 1), 1), [1, 1, imsize, imsize])
+        out += y_i * out_i
         out_sub += [out_i]
     # out = tf.clip_by_value(out, 0, 1)
     return out, out_sub
@@ -132,7 +133,7 @@ def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format
     ch_data = 1  # binary only
     imsize = 2 ** (repeat_num + 2)
     bs, n_subnet = y_data.get_shape().as_list()
-    dup = z.get_shape().as_list()[0]/bs
+    dup = 2 #2 if without x_mid, which is only x_real and x_fake. Doubled to 4 if with x_mid
 
     # Decoder
     out = tf.zeros((bs*dup, ch_data, imsize, imsize))
