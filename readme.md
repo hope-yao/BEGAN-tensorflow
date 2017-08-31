@@ -31,11 +31,14 @@ $ python test.py
 ## Network structure
 
 Since single generative network will have a hard time in doing this job, we made use of multiple generators.
-The structure of network is shown in figure below,this network is very similar to BEGAN
+Our network is based BEGAN but with multiple generators and decoders, as shown in figure below:
 
 ![model](/../subnets/assets/model.png)
 
-The training schedule is composed of three stages. Besides training of
+The training schedule is composed of three stages.
+Besides iteratively training of generator and discriminator we will also update a control variable k_t at every iteration.
+As in vanilla BEGAN, k_t controls the learning speed of generator and discriminator.
+
 ![gloss]( http://latex.codecogs.com/gif.latex?L_G=L_{rec}(x_f)L_z(x_f))
 
 ![dloss](http://latex.codecogs.com/gif.latex?L_D=L_{rec}(x_r)&plus;L_z(dz_r)-k_t[L(x_f)&plus;L_z(dz_f)])
@@ -45,12 +48,11 @@ The training schedule is composed of three stages. Besides training of
 
 ## Results
 
-For a much simpler case, consider and output an image that realizes the choice.
+For a toy case, consider we have a collection of images of "square" and "cross+square" of different orientation and size.
+Note that we are trying to recover the information of "cross" from data directly.
+Instead, we wish the network to figure out the distribution for the "cross"  from the "cross+square" and "square" data by doing subtraction.
 ![model](/../subnets/assets/itr44500.png)
-
-> The training data we used does not have the information of "cross" data directly.
-> Instead, we wish the network to figure out the distribution for the "cross"  from the "cross+square" and "square" data by doing subtraction.
-> However, it seems that the network can infer the mean value of the "cross" distribution, but not the variance.
+> it seems that the network can infer the mean value of the "cross" distribution, but not the variance.
 
 
 
