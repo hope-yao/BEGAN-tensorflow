@@ -8,9 +8,9 @@ from glob import glob
 from tqdm import trange
 from itertools import chain
 from collections import deque
-from style import total_style_cost, white_style
+# from style import total_style_cost, white_style
 
-from models import *
+from models import GeneratorCNN, Encoder, Decoder, calc_eclipse_loss_analy
 from utils import save_image, new_save_image, list2tensor, creat_dir
 from load_data import *
 
@@ -90,7 +90,8 @@ class Trainer(object):
         self.g_lr_update = tf.assign(self.g_lr, self.g_lr * 0.5, name='g_lr_update')
         self.d_lr_update = tf.assign(self.d_lr, self.d_lr * 0.5, name='d_lr_update')
 
-        self.gamma = config.gamma
+        # self.gamma = config.gamma
+        self.gamma = tf.placeholder(tf.float32,())
         self.lambda_k = config.lambda_k
 
         self.z_num = config.z_num
@@ -130,13 +131,14 @@ class Trainer(object):
         self.sess = tf.Session(config=tfconfig)
         init = tf.global_variables_initializer()
         self.sess.run(init)
-        self.saver.restore(self.sess, "./models/GAN/GAN_2017_08_12_23_30_24/experiment_102438.ckpt")
+        # self.saver.restore(self.sess, "./models/GAN/GAN_2017_08_21_14_08_10/experiment_10000.ckpt")
+        # self.saver.restore(self.sess, "./models/GAN/GAN_2017_08_12_23_30_24/experiment_102438.ckpt")
 
     def train(self):
 
         from tqdm import tqdm
         self.datadir = '/home/hope-yao/Documents/Data'
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = Mnist64_switch()
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = CRS()
         # Mnist128_trans()#CRS()#() Mnist64#
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
@@ -145,6 +147,7 @@ class Trainer(object):
         feed_dict_fix = {self.x: x_input_fix, self.y: y_input_fix, self.z: z_input_fix}
 
         counter = 0
+        gamma = 0.5
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
             for i in tqdm(range(it_per_ep)):
@@ -152,9 +155,16 @@ class Trainer(object):
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
                 y_input = self.y_train[i * self.batch_size:(i + 1) * self.batch_size]
                 z_input = np.random.normal(mu, sigma, (self.batch_size, self.z_num)).astype('float32')
-                feed_dict = {self.x: x_input, self.y: y_input, self.z: z_input}
+                feed_dict = {self.x: x_input, self.y: y_input, self.z: z_input, self.gamma:gamma}
                 result = self.sess.run([self.d_loss_real, self.d_loss_fake, self.d_loss, self.g_loss, self.k_update,
                                         self.klf_mean, self.klr_mean], feed_dict)
+                # drv, dfv, dv, gv, = result[0:4]
+                # if gv<2.:
+                # # if dfv<1.:
+                #     gamma = 1.
+                # else:
+                #     gamma = 0.5
+
                 print(result)
                 import math
                 for i, val in enumerate(result):
@@ -182,7 +192,7 @@ class Trainer(object):
                     self.summary_writer.add_summary(summary, counter)
                     self.summary_writer.flush()
 
-    def build_model(self, n_net=4):
+    def build_model(self, n_net=2):
 
         self.x = tf.placeholder(tf.float32, [self.batch_size, 1, self.imsize, self.imsize])
         self.x_norm = x = norm_img(self.x)
@@ -202,7 +212,7 @@ class Trainer(object):
         tower_grads_g = []
 
         with tf.variable_scope(tf.get_variable_scope()):
-            for i in [0]:
+            for i in [3]:
                 with tf.device('/gpu:%d' % i):
                     with tf.variable_scope('G') as vs_g:
                         self.G_norm, self.G_sub_norm = GeneratorCNN(
@@ -222,7 +232,8 @@ class Trainer(object):
                     tf.get_variable_scope().reuse_variables()
 
                     self.pt_z, self.nom, self.denom =  calc_pt_Angular(tf.split(self.d_z,2)[0],self.batch_size)
-                    self.klf, self.klr, self.mr, self.mf = calc_eclipse_loss_analy(self.d_z,self.z,n_net)
+                    self.klf, self.klr, self.mr, self.mf, self.dzf_mean_diag = calc_eclipse_loss_analy(self.d_z,self.z,n_net)
+                    self.mode_variance = tf.reduce_mean(tf.abs(self.dzf_mean_diag))
                     self.klf_mean = 2*tf.reduce_mean(list2tensor(self.klf))
                     self.klr_mean = 2*tf.reduce_mean(list2tensor(self.klr))
                     self.mr = 2*tf.reduce_mean(list2tensor(self.mr))
@@ -259,10 +270,10 @@ class Trainer(object):
                         self.gall += img_i
                     self.all_g_loss = 1 * tf.reduce_mean(tf.square(self.dgall - self.gall))
 
-                    self.r_dis = self.klr_mean + self.mr
-                    self.f_dis = self.klf_mean + self.mf
-                    self.g_loss = self.d_loss_fake + self.f_dis + self.all_g_loss#+ self.pt_z
-                    self.d_loss = self.d_loss_real - self.k_t * self.g_loss + self.r_dis
+                    self.r_dis = 10*(self.klr_mean + self.mr)
+                    self.f_dis = 10*(self.klf_mean + self.mf)
+                    self.g_loss = self.d_loss_fake + self.f_dis + self.all_g_loss #+ 20*self.pt_z
+                    self.d_loss = self.d_loss_real - self.k_t * self.g_loss + self.r_dis + 5*self.mode_variance
                     # self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake + self.r_dis + self.f_dis #+ (1-self.pt_z)
                     grads_g = g_optimizer.compute_gradients(self.g_loss, var_list=self.G_var)
                     tower_grads_g.append(grads_g)
@@ -282,7 +293,8 @@ class Trainer(object):
         self.G_sub = denorm_img(list2tensor(self.G_sub_norm), self.data_format)
         self.D_sub = denorm_img(list2tensor(self.D_sub_norm), self.data_format)
 
-        self.balance = self.gamma * self.d_loss_real - self.d_loss_fake
+        self.balance = self.gamma * (self.d_loss_real+self.r_dis) - self.g_loss
+        # self.balance = self.gamma * self.d_loss_real - self.d_loss_fake
         self.measure = self.d_loss_real + tf.abs(self.balance)
         with tf.control_dependencies([apply_gradient_d, apply_gradient_g]):
             self.k_update = tf.assign(
@@ -305,4 +317,6 @@ class Trainer(object):
             tf.summary.scalar("misc/mf", self.mf),
             tf.summary.scalar("misc/pt_z", self.pt_z),
             tf.summary.scalar("misc/all_g_loss", self.all_g_loss),
+            tf.summary.scalar("misc/gamma", self.gamma),
+            tf.summary.scalar("misc/mode_variance", self.mode_variance),
         ])

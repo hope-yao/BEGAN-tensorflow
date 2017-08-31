@@ -11,6 +11,7 @@ def CRS(num=200000):
     f = h5py.File("/home/exx/Documents/Hope/rectcrs_z.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
+    data = data*2-255. #(-255,255)
 
     label_key = f.keys()[1]
     label = np.asarray(f[label_key])
@@ -21,7 +22,7 @@ def CRS(num=200000):
     split = 0.1
     l = len(data)  # length of data
     n1 = int(split * l)  # split for testing
-    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 2  # sample(range(l), n1)
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 20  # sample(range(l), n1)
 
     x_test = data[indices]
     y_test = label[indices]
@@ -38,7 +39,7 @@ def Mnist64(num=200000):
     data = aa.item()['data']
     data = (data + 1) / 2
     label = aa.item()['label']
-    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 2
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 20
     x_test = data[indices]
     y_test = label[indices]
     x_train = np.delete(data, indices, 0)
@@ -55,7 +56,7 @@ def Mnist64_trans(num=200000):
     data = data * 255
     label_key = f.keys()[1]
     label = np.asarray(f[label_key], dtype='float32')
-    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 2
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 20
     x_test = data[indices]
     y_test = label[indices]
     x_train = np.delete(data, indices, 0)
@@ -71,7 +72,7 @@ def Mnist128_trans(num=200000):
     data = data * 255
     label_key = f.keys()[1]
     label = np.asarray(f[label_key], dtype='float32')
-    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 2
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 20
     x_test = data[indices]
     y_test = label[indices]
     x_train = np.delete(data, indices, 0)
@@ -83,7 +84,7 @@ def Mnist64_switch(num=200000):
     f = h5py.File("/home/exx/Documents/Hope/Mnist64_10k_switch.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
-    data = data * 255
+    data = data * 255 #(-255,255)
     label_key = f.keys()[1]
     label = np.asarray(f[label_key], dtype='float32')
 

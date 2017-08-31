@@ -111,7 +111,10 @@ def calc_eclipse_loss_analy(dz,z,N_Subnets):
         m_r_i = tf.reduce_mean(tf.square(z_mean - dzr_mean))
         m_r += [tf.expand_dims(m_r_i, 0)]
 
-    return  l_f, l_r, m_r, m_f#, (mi_z, mi_dzf, dzf_i)
+        if i==0:
+            tmp = mi_dzf
+
+    return  l_f, l_r, m_r, m_f, tf.reduce_mean(tmp)#, (mi_z, mi_dzf, dzf_i)
 
 def Encoder(x, z_num, repeat_num, hidden_num, data_format):
 

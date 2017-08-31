@@ -24,8 +24,14 @@ array([ 0.,  0.,  0.,  1.,  0.,  1.,  1.,  1.,  0.,  1.,  0.,  0.,  0.,
 
 
 from sklearn.manifold import TSNE
-X = dz[:,12:16]
-model = TSNE(n_components=2, perplexity=25.0, random_state=0)
+z0 = z[:,:8]
+z1 = z[:,8:]
+dzf0 = dz[:64,:8]
+dzf1 = dz[:64,8:]
+dzr1 = dz[64:,8:]
+dzr0 = dz[64:,:8]
+X = np.concatenate([z1,dzr1,dzf1])
+model = TSNE(n_components=2, perplexity=10.0, random_state=0)
 np.set_printoptions(suppress=True)
 T = model.fit_transform(X)
 import seaborn as sns
@@ -33,13 +39,12 @@ import matplotlib.pyplot as plt
 fig = plt.figure()
 # ax = plt.axes(projection='3d')
 for i,k in enumerate(T):
-    if c[i]==0:
-        plt.plot(T[i,0],T[i,1],'b.')
-#         ax.scatter(T[i,0],T[i,1],T[i,2],c='b')
-    else:
+    if i<64*1:
+        plt.plot(T[i,0],T[i,1],'k.')
+    elif i<64*2:
         plt.plot(T[i,0],T[i,1],'r.')
-#         ax.scatter(T[i,0],T[i,1],T[i,2],c='r')
-
+    elif i<64*3:
+        plt.plot(T[i,0],T[i,1],'b.')
 
 #########################################
 z_num = 32

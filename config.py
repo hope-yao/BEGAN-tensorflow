@@ -20,7 +20,7 @@ net_arg.add_argument('--conv_hidden_num', type=int, default=32,
                      choices=[64, 128],help='n in the paper')
 # number of hiden z(s) for all sub-networks.
 # Twice the number of mean and vars for vae.
-net_arg.add_argument('--z_num', type=int, default=4*4, choices=[64, 128])
+net_arg.add_argument('--z_num', type=int, default=2*4, choices=[64, 128])
 
 # Data
 data_arg = add_argument_group('Data')
@@ -37,11 +37,11 @@ train_arg.add_argument('--optimizer', type=str, default='adam')
 train_arg.add_argument('--max_step', type=int, default=500000)
 train_arg.add_argument('--lr_update_step', type=int, default=100000, choices=[100000, 75000])
 train_arg.add_argument('--d_lr', type=float, default=0.0001)
-train_arg.add_argument('--g_lr', type=float, default=0.0001)
+train_arg.add_argument('--g_lr', type=float, default=0.00001)
 train_arg.add_argument('--beta1', type=float, default=0.5)
 train_arg.add_argument('--beta2', type=float, default=0.999)
 train_arg.add_argument('--gamma', type=float, default=0.5)
-train_arg.add_argument('--lambda_k', type=float, default=0.001)
+train_arg.add_argument('--lambda_k', type=float, default=0.01)
 train_arg.add_argument('--use_gpu', type=str2bool, default=True)
 
 # Misc
