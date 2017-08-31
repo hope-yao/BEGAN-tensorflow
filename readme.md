@@ -37,7 +37,8 @@ $ python main.py
 
 ![test](http://latex.codecogs.com/gif.latex?)
 
-![struc](https://www.dropbox.com/sh/7vrmmhtil6k7chi/AACjq5M2TN6AutPpVdcSUTf0a?dl=0&preview=struc.PNG)
+![struc](/../subnets/assets/itr44500.png)
+
 Training is monitored under tensorboard, which can be visualized by running:
 
 ```sh
