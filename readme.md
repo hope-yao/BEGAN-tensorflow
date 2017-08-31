@@ -2,7 +2,8 @@ Tensorfow implementation of BEGAN with multi generators
 
 
 ## Purpose
-Every complex object or structure is assembled from several subsystem or components. Our goal is to create a generative model, which takes the assembled complex structure and decompose it into its subsystems. By creatively combine the subsystems in some novel way, the generator should also be able to create new design configurations from these components.
+Every complex object or structure is assembled from several subsystem or components.
+Our goal is to create a generative model, which takes the assembled complex structure and decompose it into its subsystems. By creatively combine the subsystems in some novel way, the generator should also be able to create new design configurations from these components.
 
 ## Requirements
 
@@ -29,14 +30,12 @@ $ python test.py
 
 ## Network structure
 
-As shown in figure below, this network is very similar to BEGAN.
-but not all individual components are realized as images in a binary vector representing the choice of components
-For a much simpler case, consider and output an image that realizes the choice. Yes, the training data we used does not have the information of "cross" data directly. Instead, we wish the network to figure out the distribution for the "cross"  from the "cross+square" and "square" data by doing subtraction. However, it seems that the network can infer the mean value of the "cross" distribution, but not the variance. I have tested network parameters a lot but it doesn't help much.
-A single generative network will have a hard time in doing job.
-
+Since single generative network will have a hard time in doing this job, we made use of multiple generators.
+The structure of network is shown in figure below,this network is very similar to BEGAN
 
 ![model](/../subnets/assets/model.png)
 
+The training schedule is composed of three stages. Besides training of
 ![gloss]( http://latex.codecogs.com/gif.latex?L_G=L_{rec}(x_f)L_z(x_f))
 
 ![dloss](http://latex.codecogs.com/gif.latex?L_D=L_{rec}(x_r)&plus;L_z(dz_r)-k_t[L(x_f)&plus;L_z(dz_f)])
@@ -46,27 +45,24 @@ A single generative network will have a hard time in doing job.
 
 ## Results
 
+For a much simpler case, consider and output an image that realizes the choice.
 ![model](/../subnets/assets/itr44500.png)
 
-
-> The overriding design goal for Markdown's
-> formatting syntax is to make it as readable
-> as possible. The idea is that a
-> Markdown-formatted document should be
-> publishable as-is, as plain text, without
-> looking like it's been marked up with tags
-> or formatting instructions.
+> The training data we used does not have the information of "cross" data directly.
+> Instead, we wish the network to figure out the distribution for the "cross"  from the "cross+square" and "square" data by doing subtraction.
+> However, it seems that the network can infer the mean value of the "cross" distribution, but not the variance.
 
 
-This will create the dillinger image and pull in the necessary dependencies. Be sure to swap out `${package.json.version}` with the actual version of Dillinger.
 
 
 ## Related works
 
 This project is largely based on
+
 | Github | Arxiv |
 | ------ | ------ |
-| [BEGAN](https://github.com/hope-yao/BEGAN-tensorflow) | [plugins/dropbox/README.md] [PlDb] |
+| [BEGAN](https://github.com/hope-yao/BEGAN-tensorflow) | https://arxiv.org/abs/1703.10717 |
+
 
 
 ## Todos
