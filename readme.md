@@ -43,7 +43,7 @@ As in vanilla BEGAN, k_t controls the learning speed of generator and discrimina
 
 ![d_opt](http://latex.codecogs.com/gif.latex?\min_{\theta_E,\theta_D}(L_D-k_tL_G))
 
-![kt](http://latex.codecogs.com/gif.latex?k_{t+1}=k_t+\lambda_k\Big(\gamma L_D-L_G\Big))
+![kt](http://latex.codecogs.com/gif.latex?k_{t+1}=k_t+\lambda_k\Big({\gamma}L_D-L_G\Big))
 
 where:
 
