@@ -4,7 +4,6 @@ import os
 import math
 import json
 import logging
-import numpy as np
 from PIL import Image
 from datetime import datetime
 

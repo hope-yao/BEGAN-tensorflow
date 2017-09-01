@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/BEGAN-tensorflow-regressor-20170811-GED-eclipse.iml" filepath="$PROJECT_DIR$/.idea/BEGAN-tensorflow-regressor-20170811-GED-eclipse.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/exx.iml" filepath="$PROJECT_DIR$/.idea/exx.iml" />
     </modules>
   </component>
 </project>

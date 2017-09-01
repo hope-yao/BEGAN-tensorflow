@@ -26,52 +26,47 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format):
     # out = tf.clip_by_value(out, 0, 1)
     return out, out_sub
 
-def sampling(z_mean, z_log_var,L=1):
-    batch_size, latent_dim = z_mean.get_shape().as_list()
-    epsilon = tf.random_normal(shape=(batch_size*L, latent_dim), mean=0.,name='epsilon')
-    return tf.tile(z_mean,[L,1]) + tf.exp(tf.tile(z_log_var,[L,1]) / 2) * 0
+def Encoder(x, z_num, repeat_num, hidden_num, data_format):
 
-def my_sampling(z,n,L=1):
-    z_g = []
-    z_mean = []
-    z_log_var = []
-    dim1, dim2 = z.get_shape().as_list()
-    for i in range(n):
-        z_mean_and_z_log_var = tf.slice(z, (0,dim2*i/n), (dim1,dim2/n))
-        z_mean_i, z_log_var_i = tf.split(z_mean_and_z_log_var, 2, axis=1)
-        z_g_i = sampling(z_mean_i, z_log_var_i, L)
-        z_g += [z_g_i]
-        z_mean += [z_mean_i]
-        z_log_var += [z_log_var_i ]
-    return list2tensor(z_g,dim=1), z_mean, z_log_var
+    # Encoder
+    x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+    for idx in range(repeat_num):
+        channel_num = hidden_num * (idx + 1)
+        x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+        x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+        if idx < repeat_num - 1:
+            # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
+            x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
+    x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
+    z = slim.fully_connected(x, z_num, activation_fn=None) # times 2 for mean and variance
 
-def calc_kl_loss(z_mean, z_log_var,bs):
-    N_Subnets = len(z_mean)
-    z_mean_real = []
-    z_logvar_real = []
-    z_mean_fake = []
-    z_logvar_fake = []
-    for i in range(N_Subnets):
-        z_mean_fake += [z_mean[i][0:bs, :]]
-        z_logvar_fake += [z_log_var[i][0:bs, :]]
-        z_mean_real += [z_mean[i][bs:2*bs, :]]
-        z_logvar_real += [z_log_var[i][bs:2*bs, :]]
+    return  z
 
-    kl_f = []
-    kl_r = []
-    for i in range(N_Subnets):
-        z_mean_i = z_mean_fake[i]
-        z_log_var_i = z_logvar_fake[i]
-        kl_f_i = -0.5 * tf.reduce_sum(1 + z_log_var_i - tf.square(z_mean_i) - tf.exp(z_log_var_i),1)
-        kl_f_i = tf.reduce_mean(kl_f_i)
-        kl_f += [tf.expand_dims(kl_f_i, 0)]
+def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format):
+    ch_data = 1  # binary only
+    imsize = 2 ** (repeat_num + 2)
+    bs, n_subnet = y_data.get_shape().as_list()
+    dup = 2 #2 if without x_mid, which is only x_real and x_fake. Doubled to 4 if with x_mid
 
-        z_mean_i = z_mean_real[i]
-        z_log_var_i = z_logvar_real[i]
-        kl_r_i = -0.5 * tf.reduce_sum(1 + z_log_var_i - tf.square(z_mean_i) - tf.exp(z_log_var_i),1)
-        kl_r_i = tf.reduce_mean(kl_r_i)
-        kl_r += [tf.expand_dims(kl_r_i, 0)]
-    return  kl_f, kl_r
+    # Decoder
+    out = tf.zeros((bs*dup, ch_data, imsize, imsize))
+    out_sub = []
+    for net_i in range(n_subnet):
+        z_i = tf.slice(z,(0,z_num/n_subnet*net_i),(bs*dup,z_num/n_subnet))#bs*net_i*dup
+        x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num]), activation_fn=None)
+        x_i = reshape(x_i, 8, 8, hidden_num, data_format)
+        for idx in range(repeat_num):
+            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            if idx < repeat_num - 1:
+                x_i = upscale(x_i, 2, data_format)
+        out_i = slim.conv2d(x_i, input_channel, 3, 1, activation_fn=None, data_format=data_format)
+        y_i = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, net_i], 1), 1), 1), [dup, 1, imsize, imsize])
+        out += y_i * out_i
+        out_sub += [out_i[0:bs*2]] #only output the first random sample
+
+    return out, out_sub
+
 
 def calc_eclipse_loss_analy(dz,z,N_Subnets):
     dzf, dzr = tf.split(dz,2)
@@ -115,49 +110,6 @@ def calc_eclipse_loss_analy(dz,z,N_Subnets):
             tmp = mi_dzf
 
     return  l_f, l_r, m_r, m_f, tf.reduce_mean(tmp)#, (mi_z, mi_dzf, dzf_i)
-
-def Encoder(x, z_num, repeat_num, hidden_num, data_format):
-
-    # Encoder
-    x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-    for idx in range(repeat_num):
-        channel_num = hidden_num * (idx + 1)
-        x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-        x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-        if idx < repeat_num - 1:
-            # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
-            x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
-    x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
-    z = slim.fully_connected(x, z_num, activation_fn=None) # times 2 for mean and variance
-
-    return  z
-
-def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format):
-    ch_data = 1  # binary only
-    imsize = 2 ** (repeat_num + 2)
-    bs, n_subnet = y_data.get_shape().as_list()
-    dup = 2 #2 if without x_mid, which is only x_real and x_fake. Doubled to 4 if with x_mid
-
-    # Decoder
-    out = tf.zeros((bs*dup, ch_data, imsize, imsize))
-    out_sub = []
-    for net_i in range(n_subnet):
-        z_i = tf.slice(z,(0,z_num/n_subnet*net_i),(bs*dup,z_num/n_subnet))#bs*net_i*dup
-        x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num]), activation_fn=None)
-        x_i = reshape(x_i, 8, 8, hidden_num, data_format)
-        for idx in range(repeat_num):
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            if idx < repeat_num - 1:
-                x_i = upscale(x_i, 2, data_format)
-        out_i = slim.conv2d(x_i, input_channel, 3, 1, activation_fn=None, data_format=data_format)
-        y_i = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, net_i], 1), 1), 1), [dup, 1, imsize, imsize])
-        out += y_i * out_i
-        out_sub += [out_i[0:bs*2]] #only output the first random sample
-
-    return out, out_sub
-
-
 
 def Encoder_mid(x, z_num, repeat_num, hidden_num, data_format):
 
@@ -208,6 +160,26 @@ def Decoder_mid(z, x_mid, n_subnet, input_channel, z_num, repeat_num, hidden_num
 
         full_rec, part_rec = tf.split(out,2)
     return full_rec, out_sub, part_rec
+
+
+def sampling(z_mean, z_log_var,L=1):
+    batch_size, latent_dim = z_mean.get_shape().as_list()
+    epsilon = tf.random_normal(shape=(batch_size*L, latent_dim), mean=0.,name='epsilon')
+    return tf.tile(z_mean,[L,1]) + tf.exp(tf.tile(z_log_var,[L,1]) / 2) * 0
+
+def my_sampling(z,n,L=1):
+    z_g = []
+    z_mean = []
+    z_log_var = []
+    dim1, dim2 = z.get_shape().as_list()
+    for i in range(n):
+        z_mean_and_z_log_var = tf.slice(z, (0,dim2*i/n), (dim1,dim2/n))
+        z_mean_i, z_log_var_i = tf.split(z_mean_and_z_log_var, 2, axis=1)
+        z_g_i = sampling(z_mean_i, z_log_var_i, L)
+        z_g += [z_g_i]
+        z_mean += [z_mean_i]
+        z_log_var += [z_log_var_i ]
+    return list2tensor(z_g,dim=1), z_mean, z_log_var
 
 def int_shape(tensor):
     shape = tensor.get_shape().as_list()

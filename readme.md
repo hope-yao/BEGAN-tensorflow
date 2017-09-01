@@ -1,4 +1,4 @@
-Tensorfow implementation of BEGAN with multi generators
+Tensorfow implementation of BEGAN with multi generators and multi-GPU support
 
 
 ## Purpose
@@ -47,7 +47,7 @@ As in vanilla BEGAN, k_t controls the learning speed of generator and discrimina
 
 where:
 
-![gloss]( http://latex.codecogs.com/gif.latex?L_G=L_{rec}(x_f)L_z(x_f))
+![gloss]( http://latex.codecogs.com/gif.latex?L_G=L_{rec}(x_f)+L_z(dz_f))
 
 ![dloss](http://latex.codecogs.com/gif.latex?L_D=L_{rec}(x_r)&plus;L_z(dz_r))
 

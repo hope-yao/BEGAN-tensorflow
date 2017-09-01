@@ -1,32 +1,11 @@
 from __future__ import print_function
 
-import os
-import StringIO
-import scipy.misc
-import numpy as np
-from glob import glob
-from tqdm import trange
-from itertools import chain
-from collections import deque
-# from style import total_style_cost, white_style
-
-from models import GeneratorCNN, Encoder, Decoder, calc_eclipse_loss_analy
-from utils import save_image, new_save_image, list2tensor, creat_dir
-from load_data import *
-
-import os
-import StringIO
-import scipy.misc
-import numpy as np
-from glob import glob
-from tqdm import trange
-from itertools import chain
-from collections import deque
-from style import total_style_cost, white_style
-
+from data_loader import *
 from models import *
-from utils import save_image, new_save_image, list2tensor, creat_dir
-from load_data import *
+from utils import save_image, list2tensor, creat_dir
+
+
+# from style import total_style_cost, white_style
 
 
 
@@ -166,7 +145,6 @@ class Trainer(object):
                 #     gamma = 0.5
 
                 print(result)
-                import math
                 for i, val in enumerate(result):
                     if np.any(np.isnan(np.asarray(val))):
                         print('err')

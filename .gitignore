@@ -1,5 +1,5 @@
 logs/
 models/
 MNIST_data/
-
+data/
 *.npy

@@ -1,3 +1,5 @@
+'''https://github.com/petewarden/tensorflow_makefile/blob/master/tensorflow/models/image/cifar10/cifar10_multi_gpu_train.py'''
+
 import tensorflow as tf
 def average_gradients(tower_grads):
   """Calculate the average gradient for each shared variable across all towers.
