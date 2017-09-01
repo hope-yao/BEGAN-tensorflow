@@ -38,11 +38,17 @@ Our network is based BEGAN but with multiple generators and decoders, as shown i
 The training schedule is composed of three stages.
 Besides iteratively training of generator and discriminator we will also update a control variable k_t at every iteration.
 As in vanilla BEGAN, k_t controls the learning speed of generator and discriminator.
+
 ![g_opt](http://latex.codecogs.com/gif.latex?\min_{\theta_G}L_g)
+
 ![d_opt](http://latex.codecogs.com/gif.latex?\min_{\theta_E,\theta_D}(L_D-k_tL_G))
+
 ![kt](http://latex.codecogs.com/gif.latex?k_{t+1}=k_t+\lambda_k\Big(\gamma L_D-L_G\Big))
+
 where:
+
 ![gloss]( http://latex.codecogs.com/gif.latex?L_G=L_{rec}(x_f)L_z(x_f))
+
 ![dloss](http://latex.codecogs.com/gif.latex?L_D=L_{rec}(x_r)&plus;L_z(dz_r))
 
 
@@ -51,11 +57,14 @@ where:
 For a toy case, consider we have a collection of images of "square" and "cross+square" of different orientation and size.
 Note that we are trying to recover the information of "cross" from data directly.
 Instead, we wish the network to figure out the distribution for the "cross"  from the "cross+square" and "square" data by doing subtraction.
+
 ![model](/../subnets/assets/itr44500.png)
+
 > Original images x_r, reconstruct real images x_r_rec, generated images x_f, reconstructed generated images x_f_rec
 > output of the first decoder subnetwork when x_f as input, output of the first decoder subnetwork when x_r as input
 > output of the second decoder subnetwork when x_f as input, output of the second decoder subnetwork when x_r as input
 > output of the first generator subnetwork with random input, output of the second decoder subnetwork with random input
+
 However, from current results, it seems that the network can infer the mean value of the "cross" distribution, but not the variance.
 
 
@@ -75,8 +84,4 @@ This project is largely based on
  - Mode collapse exists for unseen attributes
  - Compare with more networks
 
-License
-----
-
-MIT
 
