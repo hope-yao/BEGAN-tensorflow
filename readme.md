@@ -8,14 +8,19 @@ Our goal is to create a generative model, which takes the assembled complex stru
 ## Requirements
 
 This repo requires [tensorflow](https://tensorflow.org/) to run. It has been tested under version 1.1.0. Other required packages include:
-- [Dataset]()
-- [tqdm]()
-- [h5py]()
-- [PIL]()
-- [datetime]()
+- [tqdm](https://pypi.python.org/pypi/tqdm)
+- [h5py](http://www.h5py.org/)
+- [PIL](http://www.pythonware.com/products/pil/)
+- [datetime](https://stackoverflow.com/questions/20849517/no-datetime-module-in-python-how-to-install-via-easy-install)
+(If not included in your python package)
 
 ## Usage
-To train a model, simply run
+First download the dataset by:
+```sh
+$ wget -O crs.zip https://www.dropbox.com/sh/hxduua3dhghoreu/AADLbqiOOQjxHtEBoTlk1DZja?dl=1
+$ unzip crs.zip -d data
+```
+Network settings can be specified in config.py. To train a model, simply run:
 ```sh
 $ python main.py
 ```
@@ -23,10 +28,7 @@ Training is monitored under tensorboard, which can be visualized by running:
 ```sh
 $ tensorboard --logdir=./logs --port=6006
 ```
-To test a model, simply run
-```sh
-$ python test.py
-```
+The results are saved under ./logs and checkpoint is saved under ./models.
 
 ## Network structure
 

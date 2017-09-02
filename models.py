@@ -3,20 +3,19 @@ import tensorflow as tf
 slim = tf.contrib.slim
 from utils import *
 
-def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format):
+def GeneratorCNN(y_data, z, z_num_sep, hidden_num, output_num, repeat_num, data_format ):
     bs, n_subnet = y_data.get_shape().as_list()
-    z_num = z.get_shape().as_list()[1]
-    ch_data = 1 # binary only
+    assert (n_subnet==len(z_num_sep))
     imsize = 2**(repeat_num+2)
-    out = tf.zeros((bs,ch_data,imsize,imsize))
+    out = tf.zeros((bs,output_num,imsize,imsize))
     out_sub = []
-    for net_i in range(n_subnet):
-        z_i = tf.slice(z, (0, z_num / n_subnet * net_i), (bs, z_num / n_subnet))
-        x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num]), activation_fn=None)
-        x_i = reshape(x_i, 8, 8, hidden_num, data_format)
+    for net_i,_ in enumerate(z_num_sep):
+        z_i = tf.slice(z, (0, sum(z_num_sep[:net_i])), (bs, z_num_sep[net_i]))
+        x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num[net_i]]), activation_fn=None)
+        x_i = reshape(x_i, 8, 8, hidden_num[net_i], data_format)
         for idx in range(repeat_num):
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x_i = slim.conv2d(x_i, hidden_num[net_i], 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x_i = slim.conv2d(x_i, hidden_num[net_i], 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x_i = upscale(x_i, 2, data_format)
         out_i = slim.conv2d(x_i, output_num, 3, 1, activation_fn=None, data_format=data_format)
@@ -42,22 +41,20 @@ def Encoder(x, z_num, repeat_num, hidden_num, data_format):
 
     return  z
 
-def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format):
-    ch_data = 1  # binary only
+def Decoder(y_data, z, input_channel, z_num_sep, repeat_num, hidden_num, data_format):
     imsize = 2 ** (repeat_num + 2)
     bs, n_subnet = y_data.get_shape().as_list()
     dup = 2 #2 if without x_mid, which is only x_real and x_fake. Doubled to 4 if with x_mid
-
     # Decoder
-    out = tf.zeros((bs*dup, ch_data, imsize, imsize))
+    out = tf.zeros((bs*dup, input_channel, imsize, imsize))
     out_sub = []
     for net_i in range(n_subnet):
-        z_i = tf.slice(z,(0,z_num/n_subnet*net_i),(bs*dup,z_num/n_subnet))#bs*net_i*dup
-        x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num]), activation_fn=None)
-        x_i = reshape(x_i, 8, 8, hidden_num, data_format)
+        z_i = tf.slice(z, (0, sum(z_num_sep[:net_i])), (bs*dup, z_num_sep[net_i]))
+        x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num[net_i]]), activation_fn=None)
+        x_i = reshape(x_i, 8, 8, hidden_num[net_i], data_format)
         for idx in range(repeat_num):
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x_i = slim.conv2d(x_i, hidden_num[net_i], 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            x_i = slim.conv2d(x_i, hidden_num[net_i], 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
             if idx < repeat_num - 1:
                 x_i = upscale(x_i, 2, data_format)
         out_i = slim.conv2d(x_i, input_channel, 3, 1, activation_fn=None, data_format=data_format)
@@ -68,17 +65,17 @@ def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format
     return out, out_sub
 
 
-def calc_eclipse_loss_analy(dz,z,N_Subnets):
+def calc_eclipse_loss_analy(dz,z,z_num_sep):
     dzf, dzr = tf.split(dz,2)
     l_f = []
     l_r = []
     m_r = []
     m_f = []
     dim1, dim2 = dzf.get_shape().as_list()
-    for i in range(N_Subnets):
-        dzf_i = tf.slice(dzf,(0,dim2/N_Subnets*i),(dim1,dim2/N_Subnets))
-        dzr_i = tf.slice(dzr,(0,dim2/N_Subnets*i),(dim1,dim2/N_Subnets))
-        z_i = tf.slice(z,(0,dim2/N_Subnets*i),(dim1,dim2/N_Subnets))
+    for neti,z_num_i in enumerate(z_num_sep):
+        dzf_i = tf.slice(dzf,(0,sum(z_num_sep[:neti])),(dim1,z_num_sep[neti]))
+        dzr_i = tf.slice(dzr,(0,sum(z_num_sep[:neti])),(dim1,z_num_sep[neti]))
+        z_i = tf.slice(z,(0,sum(z_num_sep[:neti])),(dim1,z_num_sep[neti]))
 
         dzf_mean = tf.tile(tf.expand_dims(tf.reduce_mean(dzf_i, 0), 0), (dim1, 1))
         dzf_i = dzf_i - (dzf_mean+1e-8)
@@ -89,7 +86,7 @@ def calc_eclipse_loss_analy(dz,z,N_Subnets):
 
         mi_dzf = tf.matmul(tf.transpose(dzf_i, (1, 0)), dzf_i) / dim1
         mi_dzr = tf.matmul(tf.transpose(dzr_i, (1, 0)), dzr_i) / dim1
-        mi_z = tf.eye(dim2/N_Subnets,dim2/N_Subnets)
+        mi_z = tf.eye(z_num_i,z_num_i)
 
         # res_det_f_i = tf.square(tf.matrix_determinant(mi_z) - tf.matrix_determinant(mi_dzf))
         # res_det_r_i = tf.square(tf.matrix_determinant(mi_z) - tf.matrix_determinant(mi_dzr))
@@ -106,7 +103,7 @@ def calc_eclipse_loss_analy(dz,z,N_Subnets):
         m_r_i = tf.reduce_mean(tf.square(z_mean - dzr_mean))
         m_r += [tf.expand_dims(m_r_i, 0)]
 
-        if i==0:
+        if neti==0:
             tmp = mi_dzf
 
     return  l_f, l_r, m_r, m_f, tf.reduce_mean(tmp)#, (mi_z, mi_dzf, dzf_i)

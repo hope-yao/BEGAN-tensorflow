@@ -6,7 +6,7 @@ import json
 import logging
 from PIL import Image
 from datetime import datetime
-
+import numpy as np
 def prepare_dirs_and_logger(config):
     formatter = logging.Formatter("%(asctime)s:%(levelname)s::%(message)s")
     logger = logging.getLogger()
@@ -112,26 +112,26 @@ def creat_dir(network_type):
         if not os.path.exists(path):
             os.makedirs(path)
     return log_dir, model_dir
-
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import numpy as np
-import seaborn
-def new_save_image(tensor, filename, nrow=8, padding=4,
-               normalize=False, scale_each=False):
-    ndarr = make_grid(tensor, nrow=nrow, padding=padding,
-                            normalize=normalize, scale_each=scale_each)
-    ndarr = np.asarray(ndarr,"float32")
-    fig = plt.figure(figsize=(20,15))
-    ax = plt.gca()
-    im = ax.imshow(ndarr / np.max(ndarr))
-    # create an axes on the right side of ax. The width of cax will be 5%
-    # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(im, cax=cax,cmap="hot")#
-    plt.savefig(filename)
-    # plt.show()
-    plt.close(fig)
+#
+# import matplotlib
+# matplotlib.use('Agg')
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.axes_grid1 import make_axes_locatable
+# import numpy as np
+# import seaborn
+# def new_save_image(tensor, filename, nrow=8, padding=4,
+#                normalize=False, scale_each=False):
+#     ndarr = make_grid(tensor, nrow=nrow, padding=padding,
+#                             normalize=normalize, scale_each=scale_each)
+#     ndarr = np.asarray(ndarr,"float32")
+#     fig = plt.figure(figsize=(20,15))
+#     ax = plt.gca()
+#     im = ax.imshow(ndarr / np.max(ndarr))
+#     # create an axes on the right side of ax. The width of cax will be 5%
+#     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
+#     divider = make_axes_locatable(ax)
+#     cax = divider.append_axes("right", size="5%", pad=0.05)
+#     plt.colorbar(im, cax=cax,cmap="hot")#
+#     plt.savefig(filename)
+#     # plt.show()
+#     plt.close(fig)

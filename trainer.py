@@ -73,7 +73,8 @@ class Trainer(object):
         self.gamma = tf.placeholder(tf.float32,())
         self.lambda_k = config.lambda_k
 
-        self.z_num = config.z_num
+        self.z_num_sep = config.z_num
+        self.z_num = sum(self.z_num_sep)
         self.conv_hidden_num = config.conv_hidden_num
         self.input_scale_size = config.input_scale_size
 
@@ -84,7 +85,7 @@ class Trainer(object):
         self.data_format = config.data_format
 
         self.imsize = 64
-        self.channel = 1
+        self.channel = 3
         self.repeat_num = int(np.log2(self.imsize)) - 2
 
         self.start_step = 0
@@ -117,7 +118,7 @@ class Trainer(object):
 
         from tqdm import tqdm
         self.datadir = '/home/hope-yao/Documents/Data'
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = CRS()
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA_glass()
         # Mnist128_trans()#CRS()#() Mnist64#
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
@@ -170,15 +171,16 @@ class Trainer(object):
                     self.summary_writer.add_summary(summary, counter)
                     self.summary_writer.flush()
 
-    def build_model(self, n_net=2):
-
-        self.x = tf.placeholder(tf.float32, [self.batch_size, 1, self.imsize, self.imsize])
+    def build_model(self):
+        n_net = len(self.z_num_sep)
+        self.x = tf.placeholder(tf.float32, [self.batch_size, self.channel, self.imsize, self.imsize])
         self.x_norm = x = norm_img(self.x)
         self.y = tf.placeholder(tf.float32, [self.batch_size, n_net], name='y_input')
 
         mask = []
-        for i in range(n_net):
-            mask += [tf.tile(self.y[:, i:i + 1], [1, self.z_num / n_net])]
+        for j,_ in enumerate(self.z_num_sep):
+            for i in range(n_net):
+                mask += [tf.tile(self.y[:, i:i + 1], [1, self.z_num_sep[j]])]
         self.mask = list2tensor(mask, 1)
 
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num], name='z_input')
@@ -194,23 +196,24 @@ class Trainer(object):
                 with tf.device('/gpu:%d' % i):
                     with tf.variable_scope('G') as vs_g:
                         self.G_norm, self.G_sub_norm = GeneratorCNN(
-                            self.y, self.z, self.conv_hidden_num, self.channel,
+                            self.y, self.z, self.z_num_sep, self.conv_hidden_num, self.channel,
                             self.repeat_num, self.data_format)
                         self.G_var = tf.contrib.framework.get_variables(vs_g)
 
                     with tf.variable_scope('D') as vs_d:
                         self.all_x = tf.concat([self.G_norm, x], 0)
                         self.d_z = Encoder(self.all_x, self.z_num, self.repeat_num,
-                                           self.conv_hidden_num, self.data_format)
+                                           sum(self.conv_hidden_num), self.data_format)
                         L = 1
                         # self.d_zg, z_mean, z_log_var = my_sampling(self.d_z, n_net, L)
-                        self.d_out, self.D_sub_norm = Decoder(self.y, self.d_z, self.channel, self.z_num,
+                        self.d_out, self.D_sub_norm = Decoder(self.y, self.d_z, self.channel, self.z_num_sep,
                                                                               self.repeat_num,self.conv_hidden_num, self.data_format)
                         self.D_var = tf.contrib.framework.get_variables(vs_d)
                     tf.get_variable_scope().reuse_variables()
 
-                    self.pt_z, self.nom, self.denom =  calc_pt_Angular(tf.split(self.d_z,2)[0],self.batch_size)
-                    self.klf, self.klr, self.mr, self.mf, self.dzf_mean_diag = calc_eclipse_loss_analy(self.d_z,self.z,n_net)
+                    dz_net0 = tf.slice(self.d_z,(0,0),(2*self.batch_size,self.z_num_sep[0]) )
+                    self.pt_z, self.nom, self.denom =  calc_pt_Angular(dz_net0,self.batch_size)
+                    self.klf, self.klr, self.mr, self.mf, self.dzf_mean_diag = calc_eclipse_loss_analy(self.d_z,self.z,self.z_num_sep)
                     self.mode_variance = tf.reduce_mean(tf.abs(self.dzf_mean_diag))
                     self.klf_mean = 2*tf.reduce_mean(list2tensor(self.klf))
                     self.klr_mean = 2*tf.reduce_mean(list2tensor(self.klr))
