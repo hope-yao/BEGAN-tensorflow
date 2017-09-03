@@ -131,7 +131,7 @@ class Trainer(object):
             import h5py
             from random import sample
             import numpy as np
-            f = h5py.File(datadir + "/rect_rectcrs0.hdf5", "r")
+            f = h5py.File(datadir + "/rectcrs/rectcrs_z.hdf5", "r")
             data_key = f.keys()[0]
             data = np.asarray(f[data_key], dtype='float32')  # normalized into (-1, 1)
             # data = (np.asarray(f[data_key],dtype='float32') / 255. - 0.5 )*2 # normalized into (-1, 1)
@@ -179,13 +179,13 @@ class Trainer(object):
         self.datadir='/home/hope-yao/Documents/Data'
         (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA(self.datadir)
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
-        feed_dict_fix = {self.x: x_input_fix}
+        feed_dict_fix = {self.x: x_input_fix, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
         for epoch in range(5000):
             it_per_ep = len(self.X_train) / self.batch_size
             for i in tqdm(range(it_per_ep)):
                 counter += 1
                 x_input = self.X_train[i * self.batch_size:(i + 1) * self.batch_size]
-                feed_dict = {self.x: x_input }
+                feed_dict = {self.x: x_input, self.z:np.random.rand(self.batch_size,self.z_num)*2-1}
                 result = self.sess.run([self.d_loss,self.g_loss,self.measure,self.k_update,self.k_t],feed_dict)
                 print(result)
 
@@ -195,7 +195,7 @@ class Trainer(object):
                 if counter % 100 == 0:
                     x_img, x_rec, g_img, g_rec = \
                         self.sess.run([self.x_img, self.AE_x, self.G, self.AE_G], feed_dict_fix)
-                    nrow = 16
+                    nrow = self.batch_size
                     all_G_z = np.concatenate([x_input_fix.transpose((0,2,3,1)), x_rec, g_img, g_rec])
                     save_image(all_G_z, '{}/itr{}.png'.format(self.logdir, counter),nrow=nrow)
 
@@ -247,8 +247,8 @@ class Trainer(object):
         x = norm_img(self.x)
         self.x_img = denorm_img(self.x,self.data_format)
 
-        self.z = tf.random_uniform(
-                (tf.shape(x)[0], self.z_num), minval=-1.0, maxval=1.0)
+        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_num])
+
         self.k_t = tf.Variable(0., trainable=False, name='k_t')
 
         G, self.G_var = GeneratorCNN(
