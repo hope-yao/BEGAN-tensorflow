@@ -1,4 +1,3 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -11,7 +10,7 @@ def CRS(num=200000):
     f = h5py.File("./data/rectcrs_z.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
-    data = data*2-255. #(-255,255)
+    data = data * 2 - 255.  # (-255,255)
 
     label_key = f.keys()[1]
     label = np.asarray(f[label_key])
@@ -34,6 +33,32 @@ def CRS(num=200000):
     return (x_train, y_train), (x_test, y_test)
 
 
+def CelebA_glass(num=200000):
+    f = h5py.File("./data/celeba_64.hdf5", "r")
+    data_key = f.keys()[0]
+    data = np.asarray(f[data_key], dtype='float32')
+    data = data * 2 - 255.  # (-255,255)
+    label = np.load('./data/glass_label.npy')
+
+    indices = [0, 1, 2, 3, 4, 5, 52, 92, 118, 143, 151, 153, 187, 188, 192, 201, 228,
+               233, 236, 263, 265, 274, 275, 309, 329, 334, 349, 372,
+               374, 382, 391, 443, 446, 450, 481, 483, 499, 510, 519,
+               574, 580, 607, 618, 623, 627, 645, 672, 674, 675, 682,
+               686, 704, 709, 719, 725, 759, 777, 787, 797, 814, 901,
+               903, 906, 910, 925, 929, 934, 937, 943, 950, 957, 1027,
+               1032, 1051, 1062, 1095, 1100, 1108, 1162, 1165, 1183, 1186, 1193,
+               1214, 1223, 1240, 1302, 1324, 1350, 1351, 1399, 1400, 1434, 1440,
+               1443, 1456, 1469, 1470, 1505, 1510, 1528, 1553, 1554, 1556, 1558,
+               1597, 1605, 1607, 1612, 1615, 1651, 1674, 1689, 1702, 1720, 1727,
+               1735, 1740, 1753, 1754] * 10
+
+    x_test = data[indices]
+    y_test = label[indices]
+    x_train = np.delete(data, indices, 0)
+    y_train = np.delete(label, indices, 0)
+    return (x_train, y_train), (x_test, y_test)
+
+
 def Mnist64(num=200000):
     aa = np.load('./data/Mnist4k_b.npy')  # range in (-1,1), 1 for digit pixels
     data = aa.item()['data']
@@ -49,7 +74,6 @@ def Mnist64(num=200000):
 
 
 def Mnist64_trans(num=200000):
-
     f = h5py.File("./data/Mnist64_100k_b_trans.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
@@ -65,7 +89,6 @@ def Mnist64_trans(num=200000):
 
 
 def Mnist128_trans(num=200000):
-
     f = h5py.File("./dataMnist128_10k_b_trans.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
@@ -79,12 +102,12 @@ def Mnist128_trans(num=200000):
     y_train = np.delete(label, indices, 0)
     return (x_train, y_train), (x_test, y_test)
 
-def Mnist64_switch(num=200000):
 
+def Mnist64_switch(num=200000):
     f = h5py.File("./data/Mnist64_10k_switch.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
-    data = data * 255 #(-255,255)
+    data = data * 255  # (-255,255)
     label_key = f.keys()[1]
     label = np.asarray(f[label_key], dtype='float32')
 
@@ -105,12 +128,11 @@ def Mnist64_switch(num=200000):
     return (x_train, y_train), (x_test, y_test)
 
 
-
-
 import os
 from PIL import Image
 from glob import glob
 import tensorflow as tf
+
 
 def get_loader(root, batch_size, scale_size, data_format, split=None, is_grayscale=False, seed=None):
     dataset_name = os.path.basename(root)
@@ -124,7 +146,7 @@ def get_loader(root, batch_size, scale_size, data_format, split=None, is_graysca
             tf_decode = tf.image.decode_jpeg
         elif ext == "png":
             tf_decode = tf.image.decode_png
-        
+
         if len(paths) != 0:
             break
 
