@@ -2,10 +2,10 @@ Tensorfow implementation of BEGAN with multi generators and multi-GPU support
 
 
 ## Purpose
-Every complex object or structure is assembled from several subsystem or components.
-Our goal is to create a generative model, which takes the assembled complex structure and decompose it into its subsystems. By creatively combine the subsystems in some novel way, the generator should also be able to create new design configurations from these components.
+Consider that for a distribution of functional requirements, there theoretically exists a corresponding set of conceptual designs (the ground truth) that fulfill therequirements, and some of them are revealed as the samples (existing designs). The learningobjective of the proposed system is to match the generated designs with the ground truth, for all functional requirements. The key challenge of this task is in extrapolation, i.e., whilemodels can fit data and interpolate well, they often do not have the capability to create newdesigns that fulfill new functions or even physically make sense.  This challenge can be observed from state-of-the-art generative models (e.g., for attribute-based image generation),that  perform  reasonably  well  within  the  vicinity  of  the  existing  data  points  (3D  models)while fail hard on tasks where the generations are meant to be far from the data
 
 ![generative3](/../subnets/assets/generative3.png)
+> (a) A SOA model (3D GAN) that produces plausible component combinations forsimilar3D objects.  (b) Given images containing “squares” and “square+crosses”, existing models cannotgenerate  a  “cross”,  i.e.,  they  fail  at  extracting  components  from  an  assembly,  thus  will  not  beable to produce meaningfulnovelcombinations (see details).  The proposed method will addressfundamental limitations of the current SOA
 
 ## Requirements
 
