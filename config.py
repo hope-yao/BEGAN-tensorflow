@@ -16,11 +16,11 @@ def add_argument_group(name):
 net_arg = add_argument_group('Network')
 net_arg.add_argument('--input_scale_size', type=int, default=64,
                      help='input image will be resized with the given value as width and height')
-net_arg.add_argument('--conv_hidden_num', type=int, default=[8,32],
+net_arg.add_argument('--conv_hidden_num', type=int, default=[4,4],
                      choices=[64, 128],help='n in the paper')
 # number of hiden z(s) for all sub-networks.
 # Twice the number of mean and vars for vae.
-net_arg.add_argument('--z_num', type=int, default=[4,16], choices=[64, 128])
+net_arg.add_argument('--z_num', type=int, default=[4,16], choices=[16, 16])
 
 # Data
 data_arg = add_argument_group('Data')

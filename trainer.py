@@ -85,7 +85,7 @@ class Trainer(object):
         self.data_format = config.data_format
 
         self.imsize = 64
-        self.channel = 3
+        self.channel = 1
         self.repeat_num = int(np.log2(self.imsize)) - 2
 
         self.start_step = 0
@@ -117,8 +117,8 @@ class Trainer(object):
     def train(self):
 
         from tqdm import tqdm
-        self.datadir = '/home/hope-yao/Documents/Data'
-        (self.X_train, self.y_train), (self.X_test, self.y_test) = CelebA_glass()
+        self.datadir = './data'
+        (self.X_train, self.y_train), (self.X_test, self.y_test) = CRS()
         # Mnist128_trans()#CRS()#() Mnist64#
         x_input_fix = self.X_test[0 * self.batch_size:(0 + 1) * self.batch_size]
         y_input_fix = self.y_test[0 * self.batch_size:(0 + 1) * self.batch_size]
