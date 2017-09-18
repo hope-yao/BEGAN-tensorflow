@@ -5,6 +5,8 @@ Tensorfow implementation of BEGAN with multi generators and multi-GPU support
 Every complex object or structure is assembled from several subsystem or components.
 Our goal is to create a generative model, which takes the assembled complex structure and decompose it into its subsystems. By creatively combine the subsystems in some novel way, the generator should also be able to create new design configurations from these components.
 
+![generative3](/../subnets/assets/generative3.png)
+
 ## Requirements
 
 This repo requires [tensorflow](https://tensorflow.org/) to run. It has been tested under version 1.1.0. Other required packages include:
