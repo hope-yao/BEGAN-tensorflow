@@ -55,6 +55,11 @@ where:
 
 ![dloss](http://latex.codecogs.com/gif.latex?L_D=L_{rec}(x_r)&plus;L_z(dz_r))
 
+and:
+
+![lx](http://latex.codecogs.com/gif.latex?L_{rec}=||x-x_{rec}||_2)
+
+![lz](http://latex.codecogs.com/gif.latex?L_z=||z-dz||_2)
 
 ## Results
 
