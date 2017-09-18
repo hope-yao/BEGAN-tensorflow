@@ -43,7 +43,7 @@ The training schedule is composed of three stages.
 Besides iteratively training of generator and discriminator we will also update a control variable k_t at every iteration.
 As in vanilla BEGAN, k_t controls the learning speed of generator and discriminator.
 
-![g_opt](http://latex.codecogs.com/gif.latex?\theta_G=\min L_G)
+![g_opt](http://latex.codecogs.com/gif.latex?\theta_G=\min{L_G})
 
 ![d_opt](http://latex.codecogs.com/gif.latex?\theta_E,\theta_D=\min(L_D-k_tL_G))
 
