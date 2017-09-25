@@ -86,7 +86,7 @@ class Trainer(object):
 
         self.imsize = 64
         self.channel = 1
-        self.repeat_num = int(np.log2(self.imsize)) - 2
+        self.repeat_num = int(np.log2(self.imsize)) - 2 -1
 
         self.start_step = 0
         self.log_step = config.log_step

@@ -7,7 +7,7 @@ import numpy as np
 
 
 def CRS(num=200000):
-    f = h5py.File("./data/rectcrs_z.hdf5", "r")
+    f = h5py.File("./data/rectcrs_z_norot.hdf5", "r")
     data_key = f.keys()[0]
     data = np.asarray(f[data_key], dtype='float32')
     data = data * 2 - 255.  # (-255,255)
