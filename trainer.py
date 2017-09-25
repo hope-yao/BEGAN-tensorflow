@@ -10,7 +10,7 @@ from itertools import chain
 from collections import deque
 # from style import total_style_cost, white_style
 
-from models import GeneratorCNN, Encoder, Decoder, calc_eclipse_loss_analy
+from models import GeneratorCNN, Encoder, Decoder, calc_eclipse_loss_analy, calc_pt_Euclidian
 from utils import save_image, new_save_image, list2tensor, creat_dir
 from load_data import *
 
@@ -106,7 +106,7 @@ class Trainer(object):
 
         self.imsize = 64
         self.channel = 1
-        self.repeat_num = int(np.log2(self.imsize)) - 2
+        self.repeat_num = int(np.log2(self.imsize)) - 2 -1
 
         self.start_step = 0
         self.log_step = config.log_step
@@ -157,7 +157,7 @@ class Trainer(object):
                 z_input = np.random.normal(mu, sigma, (self.batch_size, self.z_num)).astype('float32')
                 feed_dict = {self.x: x_input, self.y: y_input, self.z: z_input, self.gamma:gamma}
                 result = self.sess.run([self.d_loss_real, self.d_loss_fake, self.d_loss, self.g_loss, self.k_update,
-                                        self.klf_mean, self.klr_mean], feed_dict)
+                                        self.kl_mean, self.m, self.pt_x], feed_dict)
                 # drv, dfv, dv, gv, = result[0:4]
                 # if gv<2.:
                 # # if dfv<1.:
@@ -219,6 +219,8 @@ class Trainer(object):
                             self.y, self.z, self.conv_hidden_num, self.channel,
                             self.repeat_num, self.data_format)
                         self.G_var = tf.contrib.framework.get_variables(vs_g)
+                    self.pt_x_sub, self.pt_x_denom_sub =  calc_pt_Euclidian(self.G_sub_norm)
+                    self.pt_x = tf.reduce_mean(list2tensor(self.pt_x_sub)/(list2tensor(self.pt_x_denom_sub)+0.01))
 
                     with tf.variable_scope('D') as vs_d:
                         self.all_x = tf.concat([self.G_norm, x], 0)
@@ -232,12 +234,10 @@ class Trainer(object):
                     tf.get_variable_scope().reuse_variables()
 
                     self.pt_z, self.nom, self.denom =  calc_pt_Angular(tf.split(self.d_z,2)[0],self.batch_size)
-                    self.klf, self.klr, self.mr, self.mf, self.dzf_mean_diag = calc_eclipse_loss_analy(self.d_z,self.z,n_net)
+                    self.kl, self.m, self.dzf_mean_diag = calc_eclipse_loss_analy(self.d_z,self.z,n_net)
                     self.mode_variance = tf.reduce_mean(tf.abs(self.dzf_mean_diag))
-                    self.klf_mean = 2*tf.reduce_mean(list2tensor(self.klf))
-                    self.klr_mean = 2*tf.reduce_mean(list2tensor(self.klr))
-                    self.mr = 2*tf.reduce_mean(list2tensor(self.mr))
-                    self.mf = 2*tf.reduce_mean(list2tensor(self.mf))
+                    self.kl_mean = 2*tf.reduce_mean(list2tensor(self.kl))
+                    self.m = 2*tf.reduce_mean(list2tensor(self.m))
 
                     self.AE_G_norm = []
                     self.AE_x_norm = []
@@ -270,11 +270,11 @@ class Trainer(object):
                         self.gall += img_i
                     self.all_g_loss = 1 * tf.reduce_mean(tf.square(self.dgall - self.gall))
 
-                    self.r_dis = 10*(self.klr_mean + self.mr)
-                    self.f_dis = 10*(self.klf_mean + self.mf)
-                    self.g_loss = self.d_loss_fake + self.f_dis + self.all_g_loss #+ 20*self.pt_z
+                    self.r_dis = 1*(self.kl_mean + self.m)
+                    self.f_dis = 1*(self.kl_mean + self.m)
+                    self.g_loss = self.d_loss_fake + self.f_dis + (self.pt_z) + (1-self.pt_x)#+ self.all_g_loss #+ 20*self.pt_z
                     self.d_loss = self.d_loss_real - self.k_t * self.g_loss + self.r_dis + 5*self.mode_variance
-                    # self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake + self.r_dis + self.f_dis #+ (1-self.pt_z)
+                    # self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake + self.r_dis + self.f_dis
                     grads_g = g_optimizer.compute_gradients(self.g_loss, var_list=self.G_var)
                     tower_grads_g.append(grads_g)
                     grads_d = d_optimizer.compute_gradients(self.d_loss, var_list=self.D_var)
@@ -311,11 +311,10 @@ class Trainer(object):
             tf.summary.scalar("misc/d_lr", self.d_lr),
             tf.summary.scalar("misc/g_lr", self.g_lr),
             tf.summary.scalar("misc/balance", self.balance),
-            tf.summary.scalar("misc/klf_mean", self.klf_mean),
-            tf.summary.scalar("misc/klr_mean", self.klr_mean),
-            tf.summary.scalar("misc/mr", self.mr),
-            tf.summary.scalar("misc/mf", self.mf),
+            tf.summary.scalar("misc/klf_mean", self.kl_mean),
+            tf.summary.scalar("misc/mr", self.m),
             tf.summary.scalar("misc/pt_z", self.pt_z),
+            tf.summary.scalar("misc/pt_x", self.pt_x),
             tf.summary.scalar("misc/all_g_loss", self.all_g_loss),
             tf.summary.scalar("misc/gamma", self.gamma),
             tf.summary.scalar("misc/mode_variance", self.mode_variance),

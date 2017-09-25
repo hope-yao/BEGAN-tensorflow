@@ -7,7 +7,7 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format):
     bs, n_subnet = y_data.get_shape().as_list()
     z_num = z.get_shape().as_list()[1]
     ch_data = 1 # binary only
-    imsize = 2**(repeat_num+2)
+    imsize = 2**(repeat_num+2+1)
     out = tf.zeros((bs,ch_data,imsize,imsize))
     out_sub = []
     for net_i in range(n_subnet):
@@ -15,10 +15,11 @@ def GeneratorCNN(y_data, z, hidden_num, output_num, repeat_num, data_format):
         x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num]), activation_fn=None)
         x_i = reshape(x_i, 8, 8, hidden_num, data_format)
         for idx in range(repeat_num):
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            if idx < repeat_num - 1:
-                x_i = upscale(x_i, 2, data_format)
+            x_i = slim.conv2d_transpose(x_i, hidden_num*(idx+1), 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
+            # x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            # x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            # if idx < repeat_num - 1:
+            #     x_i = upscale(x_i, 2, data_format)
         out_i = slim.conv2d(x_i, output_num, 3, 1, activation_fn=None, data_format=data_format)
         y_i = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, net_i], 1), 1), 1), [1, 1, imsize, imsize])
         out += y_i * out_i
@@ -99,22 +100,17 @@ def calc_eclipse_loss_analy(dz,z,N_Subnets):
         # res_det_f_i = tf.square(tf.matrix_determinant(mi_z) - tf.matrix_determinant(mi_dzf))
         # res_det_r_i = tf.square(tf.matrix_determinant(mi_z) - tf.matrix_determinant(mi_dzr))
 
-        res_f_i = tf.square(mi_z-mi_dzf)
+        res_f_i = tf.square(mi_dzr-mi_dzf)
         l_f_i = tf.reduce_mean(res_f_i) + tf.reduce_mean(tf.diag_part(res_f_i))#+res_det_f_i ##
         l_f += [tf.expand_dims(l_f_i, 0)]
-        res_r_i = tf.square(mi_z - mi_dzr)
-        l_r_i = tf.reduce_mean(res_r_i) + tf.reduce_mean(tf.diag_part(res_r_i))#+res_det_r_i ##
-        l_r += [tf.expand_dims(l_r_i, 0)]
 
-        m_f_i = tf.reduce_mean(tf.square(z_mean - dzf_mean))
+        m_f_i = tf.reduce_mean(tf.square(dzr_mean - dzf_mean))
         m_f += [tf.expand_dims(m_f_i, 0)]
-        m_r_i = tf.reduce_mean(tf.square(z_mean - dzr_mean))
-        m_r += [tf.expand_dims(m_r_i, 0)]
 
         if i==0:
             tmp = mi_dzf
 
-    return  l_f, l_r, m_r, m_f, tf.reduce_mean(tmp)#, (mi_z, mi_dzf, dzf_i)
+    return  l_f, m_f, tf.reduce_mean(tmp)#, (mi_z, mi_dzf, dzf_i)
 
 def Encoder(x, z_num, repeat_num, hidden_num, data_format):
 
@@ -122,11 +118,11 @@ def Encoder(x, z_num, repeat_num, hidden_num, data_format):
     x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
     for idx in range(repeat_num):
         channel_num = hidden_num * (idx + 1)
-        x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-        x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-        if idx < repeat_num - 1:
-            # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
-            x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
+        x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
+        # x = slim.conv2d(x, channel_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+        # if idx < repeat_num - 1:
+        #     # x = slim.conv2d(x, channel_num, 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
+        #     x = tf.contrib.layers.max_pool2d(x, [2, 2], [2, 2], padding='VALID', data_format=data_format)
     x = tf.reshape(x, [-1, np.prod([8, 8, channel_num])])
     z = slim.fully_connected(x, z_num, activation_fn=None) # times 2 for mean and variance
 
@@ -134,7 +130,7 @@ def Encoder(x, z_num, repeat_num, hidden_num, data_format):
 
 def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format):
     ch_data = 1  # binary only
-    imsize = 2 ** (repeat_num + 2)
+    imsize = 2 ** (repeat_num + 2+1)
     bs, n_subnet = y_data.get_shape().as_list()
     dup = 2 #2 if without x_mid, which is only x_real and x_fake. Doubled to 4 if with x_mid
 
@@ -146,10 +142,11 @@ def Decoder(y_data, z, input_channel, z_num, repeat_num, hidden_num, data_format
         x_i = slim.fully_connected(z_i, np.prod([8, 8, hidden_num]), activation_fn=None)
         x_i = reshape(x_i, 8, 8, hidden_num, data_format)
         for idx in range(repeat_num):
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
-            if idx < repeat_num - 1:
-                x_i = upscale(x_i, 2, data_format)
+            x_i = slim.conv2d_transpose(x_i, hidden_num*(idx+1), 3, 2, activation_fn=tf.nn.elu, data_format=data_format)
+            # x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            # x_i = slim.conv2d(x_i, hidden_num, 3, 1, activation_fn=tf.nn.elu, data_format=data_format)
+            # if idx < repeat_num - 1:
+            #     x_i = upscale(x_i, 2, data_format)
         out_i = slim.conv2d(x_i, input_channel, 3, 1, activation_fn=None, data_format=data_format)
         y_i = tf.tile(tf.expand_dims(tf.expand_dims(tf.expand_dims(y_data[:, net_i], 1), 1), 1), [dup, 1, imsize, imsize])
         out += y_i * out_i
@@ -256,3 +253,14 @@ def calc_pt_Angular(z_d_gen, bs):
     pulling_term = tf.reduce_sum(pt) / (bs * (bs - 1))
     return pulling_term, nom, denom
     #
+
+def calc_pt_Euclidian(imgs):
+    dist = []
+    denom = []
+    for net_i, img in enumerate(imgs):
+        bs = img.get_shape()[0].value
+        img_vec = tf.clip_by_value(tf.contrib.layers.flatten(img),0,1)
+        img_mat = tf.tile(tf.expand_dims(img_vec,0),(bs,1,1)) - tf.tile(tf.expand_dims(img_vec,1),(1,bs,1))
+        denom += [tf.reduce_mean(tf.tile(tf.expand_dims(img_vec, 0), (bs, 1, 1)),2)]
+        dist += [tf.reduce_mean(tf.abs(img_mat),2)]
+    return dist, denom
