@@ -254,7 +254,7 @@ class Trainer(object):
                     self.r_dis = 10*(self.klr_mean + self.mr)
                     self.f_dis = 10*(self.klf_mean + self.mf)
                     self.g_loss = self.d_loss_fake + self.f_dis + self.all_g_loss #+ 20*self.pt_z
-                    self.d_loss = self.d_loss_real - self.k_t * self.g_loss + self.r_dis + 5*self.mode_variance
+                    self.d_loss = self.d_loss_real #- self.k_t * self.g_loss + self.r_dis + 5*self.mode_variance
                     # self.d_loss = self.d_loss_real - self.k_t * self.d_loss_fake + self.r_dis + self.f_dis #+ (1-self.pt_z)
                     grads_g = g_optimizer.compute_gradients(self.g_loss, var_list=self.G_var)
                     tower_grads_g.append(grads_g)
