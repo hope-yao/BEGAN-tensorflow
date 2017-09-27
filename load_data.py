@@ -34,6 +34,33 @@ def CRS(num=200000):
     return (x_train, y_train), (x_test, y_test)
 
 
+def CRS_norot(num=200000):
+    f = h5py.File("/home/exx/Documents/Hope/rectcrs_z.hdf5", "r")
+    data_key = f.keys()[0]
+    data = np.asarray(f[data_key], dtype='float32')
+    data = data*2-255. #(-255,255)
+
+    label_key = f.keys()[1]
+    label = np.asarray(f[label_key])
+    z_key = f.keys()[2]
+    z = np.asarray(f[z_key])
+    z = z.astype('float32') * 2 - 1
+
+    split = 0.1
+    l = len(data)  # length of data
+    n1 = int(split * l)  # split for testing
+    indices = [1, -2, 3, -4, 5, -6, 7, -8, 9, -10, 11, -12, 13, -14, 15, -16] * 20  # sample(range(l), n1)
+
+    x_test = data[indices]
+    y_test = label[indices]
+    z_test = z[indices]
+    x_train = np.delete(data, indices, 0)
+    y_train = np.delete(label, indices, 0)
+    z_train = np.delete(z, indices, 0)
+
+    return (x_train, y_train), (x_test, y_test)
+
+
 def Mnist64(num=200000):
     aa = np.load('/home/exx/Documents/Hope/Mnist4k_b.npy')  # range in (-1,1), 1 for digit pixels
     data = aa.item()['data']
