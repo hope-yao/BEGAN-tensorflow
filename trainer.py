@@ -134,6 +134,85 @@ class Trainer(object):
         # self.saver.restore(self.sess, "./models/GAN/GAN_2017_08_21_14_08_10/experiment_10000.ckpt")
         # self.saver.restore(self.sess, "./models/GAN/GAN_2017_08_12_23_30_24/experiment_102438.ckpt")
 
+        with tf.device('gpu:2'):
+            self.saver.restore(self.sess,
+                               "/media/exx/easystore/BACKUP/EXX/BEGAN/20171002/BEGAN-tensorflow-regressor-20170811-GED-eclipse/models/GAN/GAN_2017_09_25_16_38_59/experiment_200000.ckpt")
+            self.datadir = '/home/hope-yao/Documents/Data'
+            (self.X_train, self.y_train), (self.X_test, self.y_test) = CRS()
+            # nn = np.load('/home/exx/Documents/Hope/rec_crs.npy')
+            # crs = nn.item()['cross_img']
+            # crs_img = np.asarray(np.reshape(crs, (crs.shape[0], 1, 64, 64)), 'float32') * 2 - 255.
+            # i = 10
+            # x_input_crs = crs_img[i * self.batch_size: (i + 1) * self.batch_size]
+            # crs_label = nn.item()['cross_label']
+            # y_input_crs = crs_label[i * self.batch_size: (i + 1) * self.batch_size]
+
+            tt_log_y_pred = []
+            tt_log_err_opt = []
+            tt_log_loss_opt = []
+            for theta in [0.3]:
+                for bias in [0.0]:
+                    log_y_pred = []
+                    log_err_opt = []
+                    log_loss_opt = []
+                    for opt_idx in range(0,4,1):
+                        y_true = self.y_test[opt_idx]
+                        x_input_opt = self.X_test[opt_idx]
+                        y0 = [0.5, 0.5]
+                        y_pred, err_opt, loss_opt = self.opt_attack(x_input_opt, y_true, y0, itr=30, bias=bias, theta=theta)
+                        log_y_pred += [y_pred]
+                        log_err_opt += [err_opt]
+                        log_loss_opt += [loss_opt]
+                    tt_log_y_pred += log_y_pred
+                    tt_log_err_opt += log_err_opt
+                    tt_log_loss_opt += log_loss_opt
+            print('done')
+
+    def opt_attack(self, x_input_opt, y_true, y0, itr=50, bias=0., theta=0.3):
+        temp = set(tf.all_variables())
+        self.y_input_opt = tf.Variable(y0,name='y_input_opt')
+
+        with tf.variable_scope("D", reuse=True):
+            x_input_opt = np.tile(x_input_opt, (2 * self.batch_size, 1, 1, 1))
+            self.d_z_opt_initial = Encoder(norm_img(x_input_opt), self.z_num, self.repeat_num,
+                           self.conv_hidden_num, self.data_format)
+
+            dzv  = self.d_z_opt_initial.eval(session=self.sess)
+            self.z0 = tf.Variable(dzv[0], name='z_input_opt')
+
+            self.d_z_opt = tf.tile(tf.expand_dims(self.z0,0),(self.batch_size*2,1))
+            y_opt = tf.tile(tf.expand_dims(self.y_input_opt,0), (self.batch_size,1))
+            self.d_out_opt, self.D_sub_norm_opt = Decoder(y_opt, self.d_z_opt, self.channel, self.z_num,
+                                                  self.repeat_num, self.conv_hidden_num, self.data_format)
+            # self.d_out_opt_sig = tf.zeros_like(self.d_out_opt)
+            # for net_i, out_i in enumerate(self.D_sub_norm_opt):
+            #     self.d_out_opt_sig += self.y_input_opt[net_i] * tf.sigmoid(out_i)
+            self.bias = tf.Variable(bias)
+            self.d_out_opt_sig = tf.sigmoid(theta*self.d_out_opt+self.bias)
+
+        self.loss_opt = tf.reduce_mean(tf.abs(self.d_out_opt_sig - tf.sigmoid(norm_img(x_input_opt))))
+        opt = tf.train.AdamOptimizer(0.01)
+        grads_g = opt.compute_gradients(self.loss_opt, var_list=[self.y_input_opt]+[self.z0])
+        apply_gradient_opt = opt.apply_gradients(grads_g, global_step=self.step)
+        self.sess.run(tf.initialize_variables(set(tf.all_variables()) - temp))
+        for i in range(itr):
+            self.sess.run(apply_gradient_opt)
+            # x_pred = self.sess.run(self.d_out_opt_sig, {self.y_input_opt: self.y_pred, self.z0: self.z_pred})
+            # x_pred = self.sess.run(self.d_out_opt-norm_img(x_input_opt), {self.y_input_opt: self.y_pred, self.z0: self.z_pred})
+            # np.mean(np.abs(norm_img(x_input_opt) - x_pred))
+
+        self.y_pred = self.y_input_opt.eval(session=self.sess)
+        self.z_pred = self.z0.eval(session=self.sess)
+        self.err_opt = y_true - np.round(self.y_pred)
+
+        np.save('test1.npy', tf.sigmoid(norm_img(x_input_opt)).eval(session=self.sess)[0, 0])
+        np.save('test2.npy', self.sess.run(self.d_out_opt_sig, {self.y_input_opt: self.y_pred, self.z0: self.z_pred})[0, 0])
+        np.save('test3.npy', self.sess.run(self.d_out_opt_sig, {self.y_input_opt: [1, 0], self.z0: self.z_pred})[0, 0])
+        tt = np.mean(np.abs(
+            self.sess.run(self.d_out_opt_sig, {self.y_input_opt: self.y_pred, self.z0: self.z_pred})[0, 0] -
+            tf.sigmoid(norm_img(x_input_opt)).eval(session=self.sess)[0, 0]))
+        return self.y_pred, self.err_opt, tt
+    #
     def train(self):
 
         from tqdm import tqdm
