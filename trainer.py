@@ -151,7 +151,7 @@ class Trainer(object):
             tt_log_err_opt = []
             tt_log_loss_opt = []
             for theta in [3]:
-                for bias in [0.0]:
+                for bias in [-2.]:
                     log_y_pred = []
                     log_err_opt = []
                     log_loss_opt = []
