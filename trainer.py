@@ -143,14 +143,14 @@ class Trainer(object):
             # crs = nn.item()['cross_img']
             # crs_img = np.asarray(np.reshape(crs, (crs.shape[0], 1, 64, 64)), 'float32') * 2 - 255.
             # i = 10
-            # x_input_crs = crs_img[i * self.batch_size: (i + 1) * self.batch_size]
+            # self.x_input_crs = crs_img[i * self.batch_size: (i + 1) * self.batch_size]
             # crs_label = nn.item()['cross_label']
-            # y_input_crs = crs_label[i * self.batch_size: (i + 1) * self.batch_size]
+            # self.y_input_crs = crs_label[i * self.batch_size: (i + 1) * self.batch_size]
 
             tt_log_y_pred = []
             tt_log_err_opt = []
             tt_log_loss_opt = []
-            for theta in [0.3]:
+            for theta in [3]:
                 for bias in [0.0]:
                     log_y_pred = []
                     log_err_opt = []
@@ -190,7 +190,7 @@ class Trainer(object):
             self.bias = tf.Variable(bias)
             self.d_out_opt_sig = tf.sigmoid(theta*self.d_out_opt+self.bias)
 
-        self.loss_opt = tf.reduce_mean(tf.abs(self.d_out_opt_sig - tf.sigmoid(norm_img(x_input_opt))))
+        self.loss_opt = tf.reduce_mean(tf.abs(self.d_out_opt_sig - norm_img(x_input_opt)))
         opt = tf.train.AdamOptimizer(0.01)
         grads_g = opt.compute_gradients(self.loss_opt, var_list=[self.y_input_opt]+[self.z0])
         apply_gradient_opt = opt.apply_gradients(grads_g, global_step=self.step)
@@ -205,9 +205,9 @@ class Trainer(object):
         self.z_pred = self.z0.eval(session=self.sess)
         self.err_opt = y_true - np.round(self.y_pred)
 
-        np.save('test1.npy', tf.sigmoid(norm_img(x_input_opt)).eval(session=self.sess)[0, 0])
+        np.save('test1.npy', norm_img(x_input_opt)[0, 0])
         np.save('test2.npy', self.sess.run(self.d_out_opt_sig, {self.y_input_opt: self.y_pred, self.z0: self.z_pred})[0, 0])
-        np.save('test3.npy', self.sess.run(self.d_out_opt_sig, {self.y_input_opt: [1, 0], self.z0: self.z_pred})[0, 0])
+        np.save('test3.npy', self.sess.run(self.d_out_opt_sig, {self.y_input_opt: y_true, self.z0: self.z_pred})[0, 0])
         tt = np.mean(np.abs(
             self.sess.run(self.d_out_opt_sig, {self.y_input_opt: self.y_pred, self.z0: self.z_pred})[0, 0] -
             tf.sigmoid(norm_img(x_input_opt)).eval(session=self.sess)[0, 0]))
